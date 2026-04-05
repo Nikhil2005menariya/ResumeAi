@@ -315,13 +315,8 @@ def generate_latex_resume(
     latex = latex.replace("<<CONTACT_INFO>>", r"{\small " + contact_info + r"}")
     
     # Summary
-    if profile.get("summary"):
-        summary_section = r"""
-\section{Summary}
-""" + escape_latex(profile["summary"])
-    else:
-        summary_section = ""
-    latex = latex.replace("<<SUMMARY_SECTION>>", summary_section)
+    # Summary - NOT included in new template (removed for space efficiency)
+    # The template focuses on Education, Experience, Projects, Skills, Certifications
     
     # Experience - Using proper template format
     if selected_experience:
@@ -421,9 +416,9 @@ def generate_latex_resume(
         education_section = ""
     latex = latex.replace("<<EDUCATION_SECTION>>", education_section)
     
-    # Skills - Using proper template format
+    # Skills - Using proper template format (only if skills exist)
     skills = profile.get("skills", [])
-    if skills:
+    if skills and len(skills) > 0:
         skill_items = []
         for skill in skills[:20]:
             skill_items.append(escape_latex(skill.get("name", "")))
@@ -442,9 +437,9 @@ def generate_latex_resume(
         skills_section = ""
     latex = latex.replace("<<SKILLS_SECTION>>", skills_section)
     
-    # Certifications - Using proper template format
+    # Certifications - Using proper template format (only if certifications exist)
     certifications = profile.get("certifications", [])
-    if certifications:
+    if certifications and len(certifications) > 0:
         cert_section = r"\section{Certifications}" + "\n"
         cert_section += r"  \resumeSubHeadingListStart" + "\n"
         
@@ -603,19 +598,19 @@ USER INSTRUCTIONS:
 TASK:
 You will be given a LaTeX template below with some sections already filled in.
 Your job is to ONLY replace the following placeholders with optimized content:
-- <<SUMMARY_SECTION>>: Professional summary matching the job requirements
 - <<EXPERIENCE_SECTION>>: Optimized experience bullets highlighting relevant achievements
 - <<PROJECTS_SECTION>>: Optimized project descriptions with metrics and relevant tech
 
 IMPORTANT RULES:
-- NEVER change the header, contact info, education, or skills sections
-- ONLY replace the <<PLACEHOLDER>> sections
+- NEVER change the header, contact info, education, skills, or certifications sections
+- ONLY replace the <<PLACEHOLDER>> sections (EXPERIENCE_SECTION and PROJECTS_SECTION)
 - Escape special characters properly (use \\& for &, \\% for %, etc)
 - Keep bullet points concise (max 2 lines each)
 - Focus on achievements with numbers/metrics when possible
 - Match language/terminology from the job description
 - NO fictional content - only use provided information
 - Ensure it compiles with pdflatex
+- Do NOT add Summary section or any other sections
 
 LATEX TEMPLATE (Fill in only the <<PLACEHOLDER>> sections):
 {latex_template_with_data}
