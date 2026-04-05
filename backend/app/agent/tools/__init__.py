@@ -485,50 +485,50 @@ Return ONLY the improved LaTeX code, nothing else.
 
 
 def _compile_with_online_latex(latex_code: str) -> Optional[bytes]:
-    """Compile LaTeX using an online service (like Overleaf API)"""
+    """Compile LaTeX using LaTeX.Online (free, no auth required)"""
     try:
         import requests
-        import json
+        import urllib.parse
         
-        # Use LaTeX.Online - a free online LaTeX compiler
-        url = "https://latex.aslushnikov.com/compile"
+        # Use LaTeX.Online (latexonline.cc) - free, fully open-source
+        # API: https://latexonline.cc/compile?text=<encoded-latex>
+        url = "https://latexonline.cc/compile"
         
-        # Prepare the request
-        data = {
-            "text": latex_code,
-            "format": "pdf"
-        }
+        # Encode LaTeX code for URL
+        encoded_latex = urllib.parse.quote(latex_code)
+        full_url = f"{url}?text={encoded_latex}"
         
-        print("🌐 Compiling LaTeX using online service...")
-        response = requests.post(
-            url, 
-            json=data,
-            headers={'Content-Type': 'application/json'},
-            timeout=30
-        )
+        print("🌐 Compiling LaTeX using LaTeX.Online service...")
+        response = requests.get(full_url, timeout=60)
         
         if response.status_code == 200:
             pdf_data = response.content
-            print(f"✅ Online LaTeX compilation successful: {len(pdf_data)} bytes")
-            return pdf_data
+            # Verify it's a valid PDF (starts with %PDF)
+            if pdf_data.startswith(b'%PDF'):
+                print(f"✅ LaTeX.Online compilation successful: {len(pdf_data)} bytes")
+                return pdf_data
+            else:
+                print(f"LaTeX.Online returned invalid PDF (likely compilation error)")
+                print(f"Response: {response.text[:300] if response.text else 'No text'}")
+                return None
         else:
-            print(f"Online LaTeX compilation failed: {response.status_code}")
+            print(f"LaTeX.Online compilation failed: {response.status_code}")
             return None
             
     except Exception as e:
-        print(f"Online LaTeX compilation error: {e}")
+        print(f"LaTeX.Online compilation error: {e}")
         return None
 
 
 def compile_latex_to_pdf(latex_code: str) -> Optional[bytes]:
-    """Compile LaTeX code to PDF using Docker LaTeX only - NO REPORTLAB FALLBACK"""
+    """Compile LaTeX code to PDF - Priority: LaTeX.Online (free) → Docker → Local pdflatex"""
     if not latex_code.strip():
         return None
     
-    # First try online LaTeX compilation (most reliable, like Overleaf)
+    # First try LaTeX.Online (free, no setup required, reliable)
     pdf_data = _compile_with_online_latex(latex_code)
     if pdf_data and len(pdf_data) > 1000:
-        print(f"✅ Online LaTeX compilation successful: {len(pdf_data)} bytes")
+        print(f"✅ LaTeX.Online compilation successful: {len(pdf_data)} bytes")
         return pdf_data
     
     # Fallback to Docker LaTeX if online fails
@@ -543,8 +543,8 @@ def compile_latex_to_pdf(latex_code: str) -> Optional[bytes]:
         print(f"✅ Local pdflatex compilation successful: {len(pdf_data)} bytes")
         return pdf_data
     
-    # FINAL FAILURE - NO REPORTLAB FALLBACK - FORCE ERROR
-    print("❌ ALL LaTeX compilation methods FAILED - No ReportLab fallback available")
+    # FINAL FAILURE - NO REPORTLAB FALLBACK
+    print("❌ ALL LaTeX compilation methods FAILED")
     return None
 
 
