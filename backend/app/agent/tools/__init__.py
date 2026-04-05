@@ -253,17 +253,23 @@ def generate_latex_resume(
     # Contact Info
     contact_parts = []
     if profile.get("email"):
-        contact_parts.append(r"\faEnvelope\ " + escape_latex(profile["email"]))
+        contact_parts.append(escape_latex(profile["email"]))
     if profile.get("phone"):
-        contact_parts.append(r"\faPhone\ " + escape_latex(profile["phone"]))
+        contact_parts.append(escape_latex(profile["phone"]))
     if profile.get("location"):
-        contact_parts.append(r"\faMapMarker\ " + escape_latex(profile["location"]))
-    if profile.get("linkedin_url"):
-        contact_parts.append(r"\faLinkedin\ \href{" + profile["linkedin_url"] + "}{LinkedIn}")
-    if profile.get("github_url"):
-        contact_parts.append(r"\faGithub\ \href{" + profile["github_url"] + "}{GitHub}")
+        contact_parts.append(escape_latex(profile["location"]))
     
-    latex = latex.replace("<<CONTACT_INFO>>", " | ".join(contact_parts))
+    links_parts = []
+    if profile.get("linkedin_url"):
+        links_parts.append(r"\href{" + profile["linkedin_url"] + "}{LinkedIn}")
+    if profile.get("github_url"):
+        links_parts.append(r"\href{" + profile["github_url"] + "}{GitHub}")
+    
+    contact_info = " $\\cdot$ ".join(contact_parts)
+    if links_parts:
+        contact_info += " $\\cdot$ " + " $\\cdot$ ".join(links_parts)
+    
+    latex = latex.replace("<<CONTACT_INFO>>", r"{\small " + contact_info + r"}")
     
     # Summary
     if profile.get("summary"):
@@ -376,19 +382,25 @@ async def generate_ai_resume(
     # Contact Info - ALWAYS USE REAL DATA
     contact_parts = []
     if profile.get("email"):
-        contact_parts.append(r"\faEnvelope\ " + escape_latex(profile["email"]))
+        contact_parts.append(escape_latex(profile["email"]))
     if profile.get("phone"):
-        contact_parts.append(r"\faPhone\ " + escape_latex(profile["phone"]))
+        contact_parts.append(escape_latex(profile["phone"]))
     if profile.get("location"):
-        contact_parts.append(r"\faMapMarker\ " + escape_latex(profile["location"]))
-    if profile.get("linkedin_url"):
-        contact_parts.append(r"\faLinkedin\ \href{" + profile["linkedin_url"] + "}{LinkedIn}")
-    if profile.get("github_url"):
-        contact_parts.append(r"\faGithub\ \href{" + profile["github_url"] + "}{GitHub}")
-    if profile.get("portfolio_url"):
-        contact_parts.append(r"\faGlobe\ \href{" + profile["portfolio_url"] + "}{Portfolio}")
+        contact_parts.append(escape_latex(profile["location"]))
     
-    latex_template_with_data = latex_template_with_data.replace("<<CONTACT_INFO>>", " | ".join(contact_parts))
+    links_parts = []
+    if profile.get("linkedin_url"):
+        links_parts.append(r"\href{" + profile["linkedin_url"] + "}{LinkedIn}")
+    if profile.get("github_url"):
+        links_parts.append(r"\href{" + profile["github_url"] + "}{GitHub}")
+    if profile.get("portfolio_url"):
+        links_parts.append(r"\href{" + profile["portfolio_url"] + "}{Portfolio}")
+    
+    contact_info = " $\\cdot$ ".join(contact_parts)
+    if links_parts:
+        contact_info += " $\\cdot$ " + " $\\cdot$ ".join(links_parts)
+    
+    latex_template_with_data = latex_template_with_data.replace("<<CONTACT_INFO>>", r"{\small " + contact_info + r"}")
     
     # Education with GPA - ALWAYS USE REAL DATA
     education = profile.get("education", [])
