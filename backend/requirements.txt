@@ -1,0 +1,44 @@
+# FastAPI and server
+fastapi==0.109.2
+uvicorn[standard]==0.27.1
+python-multipart==0.0.9
+
+# Database
+motor==3.3.2
+pymongo==4.6.1
+
+# Authentication
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+authlib==1.3.0
+httpx==0.26.0
+
+# Email
+fastapi-mail==1.4.1
+aiosmtplib==2.0.2
+
+# AI/Agent
+langchain==0.1.9
+langgraph==0.0.26
+langchain-google-genai==0.0.11
+google-generativeai==0.4.1
+
+# Web scraping
+beautifulsoup4==4.12.3
+aiohttp==3.9.3
+serpapi==0.1.5
+
+# PDF/LaTeX
+PyPDF2==3.0.1
+
+# Utilities
+python-dotenv==1.0.1
+pydantic==2.6.1
+pydantic-settings==2.2.1
+
+# WebSocket
+websockets==12.0
+
+# Development
+pytest==8.0.0
+pytest-asyncio==0.23.5
