@@ -200,34 +200,34 @@ LATEX_TEMPLATE = r"""
 \setlength{\tabcolsep}{0in}
 
 \titleformat{\section}{
-  \vspace{-4pt}\scshape\raggedright\large
-}{}{0em}{}[\color{black}\titlerule \vspace{-5pt}]
+  \vspace{-2pt}\scshape\raggedright\large
+}{}{0em}{}[\color{black}\titlerule \vspace{-2pt}]
 
 \pdfgentounicode=1
 
 \newcommand{\resumeItem}[1]{
-  \item\small{#1 \vspace{-1.5pt}}
+  \item\small{#1 \vspace{-0.5pt}}
 }
 
 \newcommand{\resumeSubheading}[4]{
-  \vspace{-2pt}\item
+  \vspace{0pt}\item
     \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
       \textbf{#1} & #2 \\
       \textit{\small#3} & \textit{\small #4} \\
-    \end{tabular*}\vspace{-6pt}
+    \end{tabular*}\vspace{-4pt}
 }
 
 \newcommand{\resumeProjectHeading}[2]{
     \item
     \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
       \small#1 & #2 \\
-    \end{tabular*}\vspace{-6pt}
+    \end{tabular*}\vspace{-4pt}
 }
 
 \newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in, label={}]}
-\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
-\newcommand{\resumeItemListStart}{\begin{itemize}[itemsep=0pt, parsep=1pt]}
-\newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-3pt}}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}\vspace{-2pt}}
+\newcommand{\resumeItemListStart}{\begin{itemize}[itemsep=2pt, parsep=0pt]}
+\newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-2pt}}
 
 %-------------------------------------------
 \begin{document}
@@ -420,17 +420,23 @@ def generate_latex_resume(
     skills = profile.get("skills", [])
     if skills and len(skills) > 0:
         skill_items = []
-        for skill in skills[:20]:
+        for skill in skills[:30]:
             skill_items.append(escape_latex(skill.get("name", "")))
         
         skills_section = r"\section{Technical Skills}" + "\n"
         skills_section += r" \begin{itemize}[leftmargin=0.15in, label={}, itemsep=2pt]" + "\n"
         skills_section += r"    \small{\item{" + "\n"
         
-        # Format skills as a comma-separated list
-        # Group into chunks of 5-6 for better readability
-        skill_text = ", ".join(skill_items)
-        skills_section += skill_text + r" \\" + "\n"
+        # Group skills into chunks of ~6-8 per line with line breaks
+        chunk_size = 7
+        chunks = [skill_items[i:i + chunk_size] for i in range(0, len(skill_items), chunk_size)]
+        
+        for idx, chunk in enumerate(chunks):
+            skill_line = ", ".join(chunk)
+            if idx < len(chunks) - 1:
+                skills_section += r"     " + skill_line + r" \\" + "\n"
+            else:
+                skills_section += r"     " + skill_line + "\n"
         
         skills_section += r"    }}" + "\n"
         skills_section += r" \end{itemize}" + "\n"
@@ -545,15 +551,23 @@ async def generate_ai_resume(
     skills = profile.get("skills", [])
     if skills and len(skills) > 0:
         skill_items = []
-        for skill in skills[:20]:
+        for skill in skills[:30]:
             skill_items.append(escape_latex(skill.get("name", "")))
         
         skills_section = r"\section{Technical Skills}" + "\n"
         skills_section += r" \begin{itemize}[leftmargin=0.15in, label={}, itemsep=2pt]" + "\n"
         skills_section += r"    \small{\item{" + "\n"
         
-        skill_text = ", ".join(skill_items)
-        skills_section += skill_text + r" \\" + "\n"
+        # Group skills into chunks of ~6-8 per line with line breaks
+        chunk_size = 7
+        chunks = [skill_items[i:i + chunk_size] for i in range(0, len(skill_items), chunk_size)]
+        
+        for idx, chunk in enumerate(chunks):
+            skill_line = ", ".join(chunk)
+            if idx < len(chunks) - 1:
+                skills_section += r"     " + skill_line + r" \\" + "\n"
+            else:
+                skills_section += r"     " + skill_line + "\n"
         
         skills_section += r"    }}" + "\n"
         skills_section += r" \end{itemize}" + "\n"
