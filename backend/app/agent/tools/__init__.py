@@ -485,7 +485,11 @@ Return ONLY the improved LaTeX code, nothing else.
 
 
 def _compile_with_online_latex(latex_code: str) -> Optional[bytes]:
-    """Compile LaTeX using LaTeX.Online (free, no auth required)"""
+    """Compile LaTeX using LaTeX.Online (free, no auth required)
+    
+    Note: LaTeX.Online has URL parameter limits and can fail with certain special characters.
+    This is a best-effort service - Docker fallback is built in.
+    """
     try:
         import requests
         import urllib.parse
@@ -494,12 +498,22 @@ def _compile_with_online_latex(latex_code: str) -> Optional[bytes]:
         # API: https://latexonline.cc/compile?text=<encoded-latex>
         url = "https://latexonline.cc/compile"
         
+        # Check if LaTeX contains problematic characters for URL encoding
+        problematic_chars = ['"', '&', '#', '%']
+        has_problematic = any(char in latex_code for char in problematic_chars)
+        
+        if has_problematic:
+            # Skip LaTeX.Online if problematic chars detected - Docker is more reliable
+            print("⚠️  LaTeX contains special characters, skipping LaTeX.Online (using Docker instead)")
+            return None
+        
         # Encode LaTeX code for URL
-        encoded_latex = urllib.parse.quote(latex_code)
+        encoded_latex = urllib.parse.quote(latex_code, safe='')
         full_url = f"{url}?text={encoded_latex}"
         
         print("🌐 Compiling LaTeX using LaTeX.Online service...")
-        response = requests.get(full_url, timeout=60)
+        # Increase timeout to 120s - LaTeX compilation can take time
+        response = requests.get(full_url, timeout=120)
         
         if response.status_code == 200:
             pdf_data = response.content
@@ -509,14 +523,16 @@ def _compile_with_online_latex(latex_code: str) -> Optional[bytes]:
                 return pdf_data
             else:
                 print(f"LaTeX.Online returned invalid PDF (likely compilation error)")
-                print(f"Response: {response.text[:300] if response.text else 'No text'}")
                 return None
         else:
-            print(f"LaTeX.Online compilation failed: {response.status_code}")
+            print(f"LaTeX.Online compilation failed: {response.status_code} - falling back to Docker")
             return None
             
+    except requests.exceptions.Timeout:
+        print("LaTeX.Online compilation timed out (>120s) - falling back to Docker")
+        return None
     except Exception as e:
-        print(f"LaTeX.Online compilation error: {e}")
+        print(f"LaTeX.Online compilation error: {e} - falling back to Docker")
         return None
 
 
