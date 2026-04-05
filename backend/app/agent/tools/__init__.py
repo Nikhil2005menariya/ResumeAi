@@ -163,35 +163,28 @@ def select_relevant_experience(
 
 
 LATEX_TEMPLATE = r"""
-\documentclass[11pt,a4paper]{article}
+\documentclass[10pt,a4paper]{article}
 \usepackage[margin=0.5in]{geometry}
 \usepackage{enumitem}
 \usepackage{hyperref}
-\usepackage{fontawesome5}
 \usepackage{titlesec}
-\usepackage{xcolor}
-
-% Colors
-\definecolor{primary}{RGB}{37, 99, 235}
-\definecolor{secondary}{RGB}{107, 114, 128}
 
 % Formatting
-\titleformat{\section}{\large\bfseries\color{primary}}{}{0em}{}[\titlerule]
-\titlespacing{\section}{0pt}{10pt}{6pt}
-\setlist[itemize]{noitemsep, topsep=0pt, leftmargin=*}
+\titleformat{\section}{\normalsize\bfseries\uppercase}{}{0em}{}[\titlerule]
+\titlespacing{\section}{0pt}{8pt}{4pt}
+\setlist[itemize]{noitemsep, topsep=2pt, leftmargin=15pt}
 \pagestyle{empty}
 
 \begin{document}
 
 % Header
 \begin{center}
-    {\LARGE\bfseries <<NAME>>}\\[4pt]
-    \textcolor{secondary}{<<HEADLINE>>}\\[4pt]
-    <<CONTACT_INFO>>
+    {\Large\bfseries <<NAME>>}\\[2pt]
+    {\small <<CONTACT_INFO>>}
 \end{center}
 
-% Summary
-<<SUMMARY_SECTION>>
+% Education
+<<EDUCATION_SECTION>>
 
 % Experience
 <<EXPERIENCE_SECTION>>
@@ -199,11 +192,11 @@ LATEX_TEMPLATE = r"""
 % Projects
 <<PROJECTS_SECTION>>
 
-% Education
-<<EDUCATION_SECTION>>
-
 % Skills
 <<SKILLS_SECTION>>
+
+% Certifications
+<<CERTIFICATIONS_SECTION>>
 
 \end{document}
 """
@@ -280,15 +273,25 @@ def generate_latex_resume(
         summary_section = ""
     latex = latex.replace("<<SUMMARY_SECTION>>", summary_section)
     
-    # Experience
+    # Experience - Improved formatting to match template style
     if selected_experience:
         exp_items = []
-        for exp in selected_experience:
-            dates = f"{exp.get('start_date', '')} -- {exp.get('end_date', 'Present')}"
-            exp_text = r"""
-\textbf{""" + escape_latex(exp['position']) + r"""} | """ + escape_latex(exp['company']) + r""" \hfill """ + dates + r"""
-\begin{itemize}
-"""
+        for exp in selected_experience[:4]:
+            company = escape_latex(exp.get('company', ''))
+            position = escape_latex(exp.get('position', ''))
+            start = exp.get('start_date', '')
+            end = exp.get('end_date', 'Present')
+            dates = f"{start} -- {end}" if start else ""
+            
+            # Main line: Company | Position with dates on right
+            exp_text = r"\textbf{" + company + r"}" + "\n"
+            exp_text += r"\textit{" + position + r"}"
+            if dates:
+                exp_text += r" \hfill " + dates
+            exp_text += "\n"
+            
+            # Bullet points
+            exp_text += r"\begin{itemize}" + "\n"
             achievements = exp.get("achievements", [])
             if not achievements and exp.get("description"):
                 achievements = [exp["description"]]
@@ -299,59 +302,98 @@ def generate_latex_resume(
             exp_text += r"\end{itemize}"
             exp_items.append(exp_text)
         
-        experience_section = r"\section{Experience}" + "\n".join(exp_items)
+        experience_section = r"\section{Experience}" + "\n" + "\n".join(exp_items)
     else:
         experience_section = ""
     latex = latex.replace("<<EXPERIENCE_SECTION>>", experience_section)
     
-    # Projects
+    # Projects - Improved formatting to match template style
     if selected_projects:
         proj_items = []
-        for proj in selected_projects:
-            tech = ", ".join(proj.get("tech_stack", [])[:5])
-            proj_text = r"""
-\textbf{""" + escape_latex(proj['title']) + r"""} | \textit{""" + escape_latex(tech) + r"""}
-\begin{itemize}
-    \item """ + escape_latex(proj['description'][:200]) + r"""
-"""
+        for proj in selected_projects[:5]:
+            title = escape_latex(proj.get('title', ''))
+            tech = proj.get("tech_stack", [])[:6]
+            tech_str = ", ".join([escape_latex(t) for t in tech])
+            
+            # Main line: Project Title | Tech Stack with GitHub link on right
+            proj_text = r"\textbf{" + title + r"}"
+            if tech_str:
+                proj_text += r" | \textit{" + tech_str + r"}"
+            
+            # Add GitHub link if available
+            if proj.get("github_url"):
+                proj_text += r" \hfill \href{" + proj["github_url"] + r"}{GitHub}"
+            
+            proj_text += "\n"
+            proj_text += r"\begin{itemize}" + "\n"
+            
+            # Description and highlights
+            if proj.get('description'):
+                proj_text += r"    \item " + escape_latex(proj['description'][:150]) + "\n"
+            
             for highlight in proj.get("highlights", [])[:2]:
                 proj_text += r"    \item " + escape_latex(highlight) + "\n"
             
             proj_text += r"\end{itemize}"
             proj_items.append(proj_text)
         
-        projects_section = r"\section{Projects}" + "\n".join(proj_items)
+        projects_section = r"\section{Projects}" + "\n" + "\n".join(proj_items)
     else:
         projects_section = ""
     latex = latex.replace("<<PROJECTS_SECTION>>", projects_section)
     
-    # Education
+    # Education - Improved formatting to match template style
     education = profile.get("education", [])
     if education:
         edu_items = []
-        for edu in education[:2]:
-            dates = f"{edu.get('start_date', '')} -- {edu.get('end_date', '')}"
-            edu_text = r"""
-\textbf{""" + escape_latex(edu['degree']) + r"""} | """ + escape_latex(edu['institution']) + r""" \hfill """ + dates
+        for edu in education[:3]:
+            start = edu.get('start_date', '')
+            end = edu.get('end_date', '')
+            dates = f"{start} -- {end}" if start and end else ""
+            
+            # Main line: Institution | Degree
+            edu_text = r"\textbf{" + escape_latex(edu.get('institution', '')) + r"}" + "\n"
+            edu_text += r"\textit{" + escape_latex(edu.get('degree', '')) + r"}"
             if edu.get("gpa"):
-                edu_text += r" | GPA: " + escape_latex(edu["gpa"])
+                edu_text += r" — CGPA: " + escape_latex(str(edu["gpa"]))
+            if dates:
+                edu_text += r" \hfill " + dates
+            
             edu_items.append(edu_text)
         
-        education_section = r"\section{Education}" + "\n".join(edu_items)
+        education_section = r"\section{Education}" + "\n" + "\n\n".join(edu_items)
     else:
         education_section = ""
     latex = latex.replace("<<EDUCATION_SECTION>>", education_section)
     
-    # Skills
+    # Skills - Improved formatting
     skills = profile.get("skills", [])
     if skills:
         # Group by category if available
-        skill_names = [s["name"] for s in skills[:15]]
-        skills_text = ", ".join([escape_latex(s) for s in skill_names])
+        skill_items = []
+        for skill in skills[:12]:
+            skill_items.append(escape_latex(skill.get("name", "")))
+        
+        skills_text = ", ".join(skill_items)
         skills_section = r"\section{Skills}" + "\n" + skills_text
     else:
         skills_section = ""
     latex = latex.replace("<<SKILLS_SECTION>>", skills_section)
+    
+    # Certifications
+    certifications = profile.get("certifications", [])
+    if certifications:
+        cert_items = []
+        for cert in certifications[:3]:
+            cert_text = r"\textbf{" + escape_latex(cert.get("name", "")) + r"}"
+            if cert.get("issuer"):
+                cert_text += r" | " + escape_latex(cert["issuer"])
+            cert_items.append(cert_text)
+        
+        certifications_section = r"\section{Certifications}" + "\n" + "\n".join(cert_items)
+    else:
+        certifications_section = ""
+    latex = latex.replace("<<CERTIFICATIONS_SECTION>>", certifications_section)
     
     return latex
 
@@ -406,17 +448,29 @@ async def generate_ai_resume(
     education = profile.get("education", [])
     if education:
         edu_items = []
-        for edu in education[:2]:
-            dates = f"{edu.get('start_date', '')} -- {edu.get('end_date', '')}"
-            edu_text = r"""\textbf{""" + escape_latex(edu['degree']) + r"""} | """ + escape_latex(edu['institution']) + r""" \hfill """ + dates
+        for edu in education[:3]:
+            start = edu.get('start_date', '')
+            end = edu.get('end_date', '')
+            dates = f"{start} -- {end}" if start and end else ""
+            
+            # Main line: Institution | Degree
+            edu_text = r"\textbf{" + escape_latex(edu.get('institution', '')) + r"}" + "\n"
+            edu_text += r"\textit{" + escape_latex(edu.get('degree', '')) + r"}"
             if edu.get("gpa"):
-                edu_text += r" | GPA: " + escape_latex(str(edu["gpa"]))
+                edu_text += r" — CGPA: " + escape_latex(str(edu["gpa"]))
+            if dates:
+                edu_text += r" \hfill " + dates
+            
             edu_items.append(edu_text)
         
-        education_section = r"\section{Education}" + "\n".join(edu_items)
+        education_section = r"\section{Education}" + "\n" + "\n\n".join(edu_items)
     else:
         education_section = ""
     latex_template_with_data = latex_template_with_data.replace("<<EDUCATION_SECTION>>", education_section)
+    
+    # Add empty skills and certifications sections (will be filled by the template or left empty)
+    latex_template_with_data = latex_template_with_data.replace("<<SKILLS_SECTION>>", "")
+    latex_template_with_data = latex_template_with_data.replace("<<CERTIFICATIONS_SECTION>>", "")
     
     # Step 1: Prepare context for AI (for content optimization only)
     profile_summary = f"""
