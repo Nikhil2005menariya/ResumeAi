@@ -540,9 +540,46 @@ async def generate_ai_resume(
         education_section = ""
     latex_template_with_data = latex_template_with_data.replace("<<EDUCATION_SECTION>>", education_section)
     
-    # Add empty skills and certifications sections (will be filled by the template or left empty)
-    latex_template_with_data = latex_template_with_data.replace("<<SKILLS_SECTION>>", "")
-    latex_template_with_data = latex_template_with_data.replace("<<CERTIFICATIONS_SECTION>>", "")
+    # Skills - Populate from user profile data (not AI generated)
+    skills = profile.get("skills", [])
+    if skills and len(skills) > 0:
+        skill_items = []
+        for skill in skills[:20]:
+            skill_items.append(escape_latex(skill.get("name", "")))
+        
+        skills_section = r"\section{Technical Skills}" + "\n"
+        skills_section += r" \begin{itemize}[leftmargin=0.15in, label={}, itemsep=2pt]" + "\n"
+        skills_section += r"    \small{\item{" + "\n"
+        
+        skill_text = ", ".join(skill_items)
+        skills_section += r"     " + skill_text + "\n"
+        
+        skills_section += r"    }}" + "\n"
+        skills_section += r" \end{itemize}" + "\n"
+    else:
+        skills_section = ""
+    latex_template_with_data = latex_template_with_data.replace("<<SKILLS_SECTION>>", skills_section)
+    
+    # Certifications - Populate from user profile data if exists
+    certifications = profile.get("certifications", [])
+    if certifications and len(certifications) > 0:
+        cert_section = r"\section{Certifications}" + "\n"
+        cert_section += r"  \resumeSubHeadingListStart" + "\n"
+        
+        for cert in certifications[:3]:
+            name = escape_latex(cert.get("name", ""))
+            issuer = escape_latex(cert.get("issuer", ""))
+            cert_line = r"\textbf{" + name + r"}"
+            if issuer:
+                cert_line += r" $|$ \emph{" + issuer + r"}"
+            
+            cert_section += r"    \resumeProjectHeading{" + cert_line + r"}{}" + "\n"
+        
+        cert_section += r"  \resumeSubHeadingListEnd" + "\n"
+        certifications_section = cert_section
+    else:
+        certifications_section = ""
+    latex_template_with_data = latex_template_with_data.replace("<<CERTIFICATIONS_SECTION>>", certifications_section)
     
     # Step 1: Prepare context for AI (for content optimization only)
     profile_summary = f"""
