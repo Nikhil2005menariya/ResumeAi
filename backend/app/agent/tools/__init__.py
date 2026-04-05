@@ -234,7 +234,7 @@ LATEX_TEMPLATE = r"""
 
 %----------HEADING----------
 \begin{center}
-    \textbf{\Huge \scshape <<NAME>>} \\ \vspace{4pt}
+    \textbf{\Huge <<NAME>>} \\ \vspace{4pt}
     \small <<CONTACT_INFO>>
 \end{center}
 
@@ -285,8 +285,11 @@ def generate_latex_resume(
     """Generate LaTeX code for resume"""
     latex = LATEX_TEMPLATE
     
-    # Name
-    name = escape_latex(profile.get("full_name", "Your Name"))
+    # Name - Properly formatted
+    full_name = profile.get("full_name", "Your Name")
+    # Ensure proper title case: "Nikhil Menariya" instead of "NIKHIL Menariya"
+    full_name = " ".join([word.capitalize() for word in full_name.split()])
+    name = escape_latex(full_name)
     latex = latex.replace("<<NAME>>", name)
     
     # Headline
@@ -483,8 +486,11 @@ async def generate_ai_resume(
     # This ensures contact info and education with GPA are always correct
     latex_template_with_data = LATEX_TEMPLATE
     
-    # Name
-    name = escape_latex(profile.get("full_name", "Your Name"))
+    # Name - Properly formatted
+    full_name = profile.get("full_name", "Your Name")
+    # Ensure proper title case: "Nikhil Menariya" instead of "NIKHIL Menariya"
+    full_name = " ".join([word.capitalize() for word in full_name.split()])
+    name = escape_latex(full_name)
     latex_template_with_data = latex_template_with_data.replace("<<NAME>>", name)
     
     # Headline
