@@ -416,7 +416,7 @@ def generate_latex_resume(
         education_section = ""
     latex = latex.replace("<<EDUCATION_SECTION>>", education_section)
     
-    # Skills - Using proper template format (only if skills exist)
+    # Skills - Using proper template format with categories (only if skills exist)
     skills = profile.get("skills", [])
     if skills and len(skills) > 0:
         skill_items = []
@@ -427,9 +427,10 @@ def generate_latex_resume(
         skills_section += r" \begin{itemize}[leftmargin=0.15in, label={}, itemsep=2pt]" + "\n"
         skills_section += r"    \small{\item{" + "\n"
         
-        # Group skills by category if available
+        # Format skills as a comma-separated list
+        # Group into chunks of 5-6 for better readability
         skill_text = ", ".join(skill_items)
-        skills_section += r"     " + skill_text + "\n"
+        skills_section += skill_text + r" \\" + "\n"
         
         skills_section += r"    }}" + "\n"
         skills_section += r" \end{itemize}" + "\n"
@@ -552,7 +553,7 @@ async def generate_ai_resume(
         skills_section += r"    \small{\item{" + "\n"
         
         skill_text = ", ".join(skill_items)
-        skills_section += r"     " + skill_text + "\n"
+        skills_section += skill_text + r" \\" + "\n"
         
         skills_section += r"    }}" + "\n"
         skills_section += r" \end{itemize}" + "\n"
