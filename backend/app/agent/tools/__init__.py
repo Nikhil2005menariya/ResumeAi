@@ -359,9 +359,54 @@ async def generate_ai_resume(
     job_description: str,
     user_instructions: str = ""
 ) -> str:
-    """Generate ATS-optimized resume using AI with iterative improvement"""
+    """Generate ATS-optimized resume using AI with real user data"""
     
-    # Step 1: Prepare context for AI
+    # Step 0: Pre-fill template with actual user data (name, email, phone, location, etc)
+    # This ensures contact info and education with GPA are always correct
+    latex_template_with_data = LATEX_TEMPLATE
+    
+    # Name
+    name = escape_latex(profile.get("full_name", "Your Name"))
+    latex_template_with_data = latex_template_with_data.replace("<<NAME>>", name)
+    
+    # Headline
+    headline = escape_latex(profile.get("headline", ""))
+    latex_template_with_data = latex_template_with_data.replace("<<HEADLINE>>", headline)
+    
+    # Contact Info - ALWAYS USE REAL DATA
+    contact_parts = []
+    if profile.get("email"):
+        contact_parts.append(r"\faEnvelope\ " + escape_latex(profile["email"]))
+    if profile.get("phone"):
+        contact_parts.append(r"\faPhone\ " + escape_latex(profile["phone"]))
+    if profile.get("location"):
+        contact_parts.append(r"\faMapMarker\ " + escape_latex(profile["location"]))
+    if profile.get("linkedin_url"):
+        contact_parts.append(r"\faLinkedin\ \href{" + profile["linkedin_url"] + "}{LinkedIn}")
+    if profile.get("github_url"):
+        contact_parts.append(r"\faGithub\ \href{" + profile["github_url"] + "}{GitHub}")
+    if profile.get("portfolio_url"):
+        contact_parts.append(r"\faGlobe\ \href{" + profile["portfolio_url"] + "}{Portfolio}")
+    
+    latex_template_with_data = latex_template_with_data.replace("<<CONTACT_INFO>>", " | ".join(contact_parts))
+    
+    # Education with GPA - ALWAYS USE REAL DATA
+    education = profile.get("education", [])
+    if education:
+        edu_items = []
+        for edu in education[:2]:
+            dates = f"{edu.get('start_date', '')} -- {edu.get('end_date', '')}"
+            edu_text = r"""\textbf{""" + escape_latex(edu['degree']) + r"""} | """ + escape_latex(edu['institution']) + r""" \hfill """ + dates
+            if edu.get("gpa"):
+                edu_text += r" | GPA: " + escape_latex(str(edu["gpa"]))
+            edu_items.append(edu_text)
+        
+        education_section = r"\section{Education}" + "\n".join(edu_items)
+    else:
+        education_section = ""
+    latex_template_with_data = latex_template_with_data.replace("<<EDUCATION_SECTION>>", education_section)
+    
+    # Step 1: Prepare context for AI (for content optimization only)
     profile_summary = f"""
 Name: {profile.get('full_name', 'N/A')}
 Headline: {profile.get('headline', 'N/A')}
@@ -369,11 +414,7 @@ Location: {profile.get('location', 'N/A')}
 Summary: {profile.get('summary', 'N/A')}
 
 Skills: {', '.join([s.get('name', '') for s in profile.get('skills', [])])}
-
-Education:
 """
-    for edu in profile.get('education', []):
-        profile_summary += f"- {edu.get('degree')} from {edu.get('institution')} ({edu.get('start_date')} - {edu.get('end_date')})\n"
     
     # Step 2: Format experience
     experience_text = ""
@@ -389,10 +430,11 @@ Education:
         projects_text += f"\n{proj.get('title')}\n"
         projects_text += f"Tech: {', '.join(proj.get('tech_stack', []))}\n"
         projects_text += f"Description: {proj.get('description')}\n"
+        projects_text += f"GitHub: {proj.get('github_url', 'N/A')}\n"
         for highlight in proj.get('highlights', []):
             projects_text += f"- {highlight}\n"
     
-    # Step 4: Create AI prompt
+    # Step 4: Create AI prompt - ask to optimize experience, projects, summary only
     prompt = f"""You are an expert resume writer specializing in ATS-optimized resumes. 
 
 JOB DESCRIPTION:
@@ -416,31 +458,30 @@ USER INSTRUCTIONS:
 {user_instructions or 'Create the best possible resume for this job.'}
 
 TASK:
-Generate a complete, professional, ATS-optimized resume in LaTeX format that:
-1. Highlights skills matching the job description
-2. Uses action verbs and quantifiable achievements
-3. Optimizes for ATS keyword matching
-4. Fits EXACTLY 1 page
-5. Presents the most relevant experience and projects first
-6. Uses professional formatting
+You will be given a LaTeX template below with some sections already filled in.
+Your job is to ONLY replace the following placeholders with optimized content:
+- <<SUMMARY_SECTION>>: Professional summary matching the job requirements
+- <<EXPERIENCE_SECTION>>: Optimized experience bullets highlighting relevant achievements
+- <<PROJECTS_SECTION>>: Optimized project descriptions with metrics and relevant tech
 
 IMPORTANT RULES:
-- Use the LaTeX template structure provided below
-- Escape special characters properly (use \\& for &, \\% for %, \\$ for $, \\# for #, \\_ for _)
+- NEVER change the header, contact info, education, or skills sections
+- ONLY replace the <<PLACEHOLDER>> sections
+- Escape special characters properly (use \\& for &, \\% for %, etc)
 - Keep bullet points concise (max 2 lines each)
 - Focus on achievements with numbers/metrics when possible
 - Match language/terminology from the job description
 - NO fictional content - only use provided information
 - Ensure it compiles with pdflatex
 
-LATEX TEMPLATE TO FOLLOW:
-{LATEX_TEMPLATE}
+LATEX TEMPLATE (Fill in only the <<PLACEHOLDER>> sections):
+{latex_template_with_data}
 
-Generate ONLY the complete LaTeX code, no explanations. Start with \\documentclass and end with \\end{{document}}.
+Generate ONLY the complete modified LaTeX code, no explanations. Start with \\documentclass and end with \\end{{document}}.
 """
     
     # Step 5: Generate with AI
-    print("🤖 Generating resume with AI...")
+    print("🤖 Generating resume content with AI...")
     latex_code = await generate_with_gemini(prompt, "")
     
     # Step 6: Extract LaTeX code from response
@@ -448,6 +489,8 @@ Generate ONLY the complete LaTeX code, no explanations. Start with \\documentcla
         start = latex_code.find("\\documentclass")
         end = latex_code.rfind("\\end{document}") + len("\\end{document}")
         latex_code = latex_code[start:end]
+    
+    return latex_code
     else:
         # Fallback to template if AI fails
         print("⚠️ AI generation failed, using template fallback")
