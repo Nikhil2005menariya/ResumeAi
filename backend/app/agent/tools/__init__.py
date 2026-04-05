@@ -491,40 +491,6 @@ Generate ONLY the complete modified LaTeX code, no explanations. Start with \\do
         latex_code = latex_code[start:end]
     
     return latex_code
-    else:
-        # Fallback to template if AI fails
-        print("⚠️ AI generation failed, using template fallback")
-        latex_code = generate_latex_resume(profile, projects, experience, keywords)
-    
-    # Step 7: Iteratively improve (second pass)
-    improvement_prompt = f"""Review this LaTeX resume and improve it:
-
-CURRENT RESUME:
-{latex_code}
-
-JOB DESCRIPTION KEYWORDS: {', '.join(keywords[:15])}
-
-IMPROVEMENTS NEEDED:
-1. Ensure ALL special characters are properly escaped
-2. Verify bullet points are quantified with metrics/numbers
-3. Check that keywords from JD appear naturally
-4. Confirm it's exactly 1 page when compiled
-5. Verify professional formatting
-
-Return ONLY the improved LaTeX code, nothing else.
-"""
-    
-    try:
-        improved_latex = await generate_with_gemini(improvement_prompt, "")
-        if "\\documentclass" in improved_latex:
-            start = improved_latex.find("\\documentclass")
-            end = improved_latex.rfind("\\end{document}") + len("\\end{document}")
-            latex_code = improved_latex[start:end]
-            print("✅ Resume improved by AI")
-    except Exception as e:
-        print(f"⚠️ Improvement step failed: {e}, using initial version")
-    
-    return latex_code
 
 
 def _compile_with_online_latex(latex_code: str) -> Optional[bytes]:
