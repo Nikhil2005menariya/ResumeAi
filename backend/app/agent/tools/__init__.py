@@ -163,39 +163,89 @@ def select_relevant_experience(
 
 
 LATEX_TEMPLATE = r"""
-\documentclass[10pt,a4paper]{article}
-\usepackage[margin=0.5in]{geometry}
-\usepackage{enumitem}
-\usepackage{hyperref}
+%-------------------------
+% ATS-Friendly One-Page Resume
+%-------------------------
+
+\documentclass[letterpaper,10.8pt]{article}
+
+\usepackage{latexsym}
+\usepackage[empty]{fullpage}
 \usepackage{titlesec}
+\usepackage{marvosym}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage[english]{babel}
+\usepackage{tabularx}
+\input{glyphtounicode}
 
-% Formatting
-\titleformat{\section}{\normalsize\bfseries\uppercase}{}{0em}{}[\titlerule]
-\titlespacing{\section}{0pt}{8pt}{4pt}
-\setlist[itemize]{noitemsep, topsep=2pt, leftmargin=15pt}
-\pagestyle{empty}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyfoot{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
 
+\addtolength{\oddsidemargin}{-0.5in}
+\addtolength{\evensidemargin}{-0.5in}
+\addtolength{\textwidth}{1in}
+\addtolength{\topmargin}{-.5in}
+\addtolength{\textheight}{1.0in}
+
+\urlstyle{same}
+\raggedbottom
+\raggedright
+\setlength{\tabcolsep}{0in}
+
+\titleformat{\section}{
+  \vspace{-4pt}\scshape\raggedright\large
+}{}{0em}{}[\color{black}\titlerule \vspace{-5pt}]
+
+\pdfgentounicode=1
+
+\newcommand{\resumeItem}[1]{
+  \item\small{#1 \vspace{-1.5pt}}
+}
+
+\newcommand{\resumeSubheading}[4]{
+  \vspace{-2pt}\item
+    \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
+      \textbf{#1} & #2 \\
+      \textit{\small#3} & \textit{\small #4} \\
+    \end{tabular*}\vspace{-6pt}
+}
+
+\newcommand{\resumeProjectHeading}[2]{
+    \item
+    \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
+      \small#1 & #2 \\
+    \end{tabular*}\vspace{-6pt}
+}
+
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in, label={}]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}[itemsep=0pt, parsep=1pt]}
+\newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-3pt}}
+
+%-------------------------------------------
 \begin{document}
 
-% Header
+%----------HEADING----------
 \begin{center}
-    {\Large\bfseries <<NAME>>}\\[2pt]
-    {\small <<CONTACT_INFO>>}
+    \textbf{\Huge \scshape <<NAME>>} \\ \vspace{4pt}
+    \small <<CONTACT_INFO>>
 \end{center}
 
-% Education
 <<EDUCATION_SECTION>>
 
-% Experience
 <<EXPERIENCE_SECTION>>
 
-% Projects
 <<PROJECTS_SECTION>>
 
-% Skills
 <<SKILLS_SECTION>>
 
-% Certifications
 <<CERTIFICATIONS_SECTION>>
 
 \end{document}
@@ -273,124 +323,142 @@ def generate_latex_resume(
         summary_section = ""
     latex = latex.replace("<<SUMMARY_SECTION>>", summary_section)
     
-    # Experience - Improved formatting to match template style
+    # Experience - Using proper template format
     if selected_experience:
-        exp_items = []
-        for exp in selected_experience[:4]:
+        exp_section = r"\section{Experience}" + "\n"
+        exp_section += r"  \resumeSubHeadingListStart" + "\n"
+        
+        for exp in selected_experience[:3]:
             company = escape_latex(exp.get('company', ''))
             position = escape_latex(exp.get('position', ''))
+            location = escape_latex(exp.get('location', ''))
             start = exp.get('start_date', '')
             end = exp.get('end_date', 'Present')
             dates = f"{start} -- {end}" if start else ""
             
-            # Main line: Company | Position with dates on right
-            exp_text = r"\textbf{" + company + r"}" + "\n"
-            exp_text += r"\textit{" + position + r"}"
-            if dates:
-                exp_text += r" \hfill " + dates
-            exp_text += "\n"
+            exp_section += r"    \resumeSubheading" + "\n"
+            exp_section += f"      {{{company}}}{{{location}}}\n"
+            exp_section += f"      {{{position}}}{{{dates}}}\n"
+            exp_section += r"      \resumeItemListStart" + "\n"
             
-            # Bullet points
-            exp_text += r"\begin{itemize}" + "\n"
             achievements = exp.get("achievements", [])
             if not achievements and exp.get("description"):
                 achievements = [exp["description"]]
             
             for achievement in achievements[:4]:
-                exp_text += r"    \item " + escape_latex(achievement) + "\n"
+                exp_section += r"        \resumeItem{" + escape_latex(achievement) + r"}" + "\n"
             
-            exp_text += r"\end{itemize}"
-            exp_items.append(exp_text)
+            exp_section += r"      \resumeItemListEnd" + "\n"
         
-        experience_section = r"\section{Experience}" + "\n" + "\n".join(exp_items)
+        exp_section += r"  \resumeSubHeadingListEnd" + "\n"
+        experience_section = exp_section
     else:
         experience_section = ""
     latex = latex.replace("<<EXPERIENCE_SECTION>>", experience_section)
     
-    # Projects - Improved formatting to match template style
+    # Projects - Using proper template format
     if selected_projects:
-        proj_items = []
-        for proj in selected_projects[:5]:
+        proj_section = r"\section{Projects}" + "\n"
+        proj_section += r"  \resumeSubHeadingListStart" + "\n"
+        
+        for proj in selected_projects[:4]:
             title = escape_latex(proj.get('title', ''))
             tech = proj.get("tech_stack", [])[:6]
             tech_str = ", ".join([escape_latex(t) for t in tech])
+            github = proj.get("github_url", "")
             
-            # Main line: Project Title | Tech Stack with GitHub link on right
-            proj_text = r"\textbf{" + title + r"}"
+            # Project heading with tech and GitHub link
+            proj_line = r"\textbf{" + title + r"}"
             if tech_str:
-                proj_text += r" | \textit{" + tech_str + r"}"
+                proj_line += r" $|$ \emph{" + tech_str + r"}"
+            if github:
+                proj_line += r" \href{" + github + r"}{GitHub}"
             
-            # Add GitHub link if available
-            if proj.get("github_url"):
-                proj_text += r" \hfill \href{" + proj["github_url"] + r"}{GitHub}"
+            proj_section += r"    \resumeProjectHeading" + "\n"
+            proj_section += f"      {{{proj_line}}}{{}}\n"
+            proj_section += r"      \resumeItemListStart" + "\n"
             
-            proj_text += "\n"
-            proj_text += r"\begin{itemize}" + "\n"
-            
-            # Description and highlights
             if proj.get('description'):
-                proj_text += r"    \item " + escape_latex(proj['description'][:150]) + "\n"
+                proj_section += r"        \resumeItem{" + escape_latex(proj['description'][:150]) + r"}" + "\n"
             
             for highlight in proj.get("highlights", [])[:2]:
-                proj_text += r"    \item " + escape_latex(highlight) + "\n"
+                proj_section += r"        \resumeItem{" + escape_latex(highlight) + r"}" + "\n"
             
-            proj_text += r"\end{itemize}"
-            proj_items.append(proj_text)
+            proj_section += r"      \resumeItemListEnd" + "\n"
         
-        projects_section = r"\section{Projects}" + "\n" + "\n".join(proj_items)
+        proj_section += r"  \resumeSubHeadingListEnd" + "\n"
+        projects_section = proj_section
     else:
         projects_section = ""
     latex = latex.replace("<<PROJECTS_SECTION>>", projects_section)
     
-    # Education - Improved formatting to match template style
+    # Education - Using proper template format
     education = profile.get("education", [])
     if education:
-        edu_items = []
-        for edu in education[:3]:
+        edu_section = r"\section{Education}" + "\n"
+        edu_section += r"  \resumeSubHeadingListStart" + "\n"
+        
+        for edu in education[:2]:
+            institution = escape_latex(edu.get('institution', ''))
+            degree = escape_latex(edu.get('degree', ''))
+            location = escape_latex(edu.get('location', ''))
             start = edu.get('start_date', '')
             end = edu.get('end_date', '')
             dates = f"{start} -- {end}" if start and end else ""
             
-            # Main line: Institution | Degree
-            edu_text = r"\textbf{" + escape_latex(edu.get('institution', '')) + r"}" + "\n"
-            edu_text += r"\textit{" + escape_latex(edu.get('degree', '')) + r"}"
-            if edu.get("gpa"):
-                edu_text += r" — CGPA: " + escape_latex(str(edu["gpa"]))
-            if dates:
-                edu_text += r" \hfill " + dates
+            edu_section += r"    \resumeSubheading" + "\n"
+            edu_section += f"      {{{institution}}}{{{location}}}\n"
+            edu_section += f"      {{{degree}}}{{{dates}}}\n"
             
-            edu_items.append(edu_text)
+            if edu.get("gpa"):
+                edu_section += r"      \resumeItemListStart" + "\n"
+                edu_section += r"        \resumeItem{CGPA: " + escape_latex(str(edu["gpa"])) + r"}" + "\n"
+                edu_section += r"      \resumeItemListEnd" + "\n"
         
-        education_section = r"\section{Education}" + "\n" + "\n\n".join(edu_items)
+        edu_section += r"  \resumeSubHeadingListEnd" + "\n"
+        education_section = edu_section
     else:
         education_section = ""
     latex = latex.replace("<<EDUCATION_SECTION>>", education_section)
     
-    # Skills - Improved formatting
+    # Skills - Using proper template format
     skills = profile.get("skills", [])
     if skills:
-        # Group by category if available
         skill_items = []
-        for skill in skills[:12]:
+        for skill in skills[:20]:
             skill_items.append(escape_latex(skill.get("name", "")))
         
-        skills_text = ", ".join(skill_items)
-        skills_section = r"\section{Skills}" + "\n" + skills_text
+        skills_section = r"\section{Technical Skills}" + "\n"
+        skills_section += r" \begin{itemize}[leftmargin=0.15in, label={}, itemsep=2pt]" + "\n"
+        skills_section += r"    \small{\item{" + "\n"
+        
+        # Group skills by category if available
+        skill_text = ", ".join(skill_items)
+        skills_section += r"     " + skill_text + "\n"
+        
+        skills_section += r"    }}" + "\n"
+        skills_section += r" \end{itemize}" + "\n"
     else:
         skills_section = ""
     latex = latex.replace("<<SKILLS_SECTION>>", skills_section)
     
-    # Certifications
+    # Certifications - Using proper template format
     certifications = profile.get("certifications", [])
     if certifications:
-        cert_items = []
-        for cert in certifications[:3]:
-            cert_text = r"\textbf{" + escape_latex(cert.get("name", "")) + r"}"
-            if cert.get("issuer"):
-                cert_text += r" | " + escape_latex(cert["issuer"])
-            cert_items.append(cert_text)
+        cert_section = r"\section{Certifications}" + "\n"
+        cert_section += r"  \resumeSubHeadingListStart" + "\n"
         
-        certifications_section = r"\section{Certifications}" + "\n" + "\n".join(cert_items)
+        for cert in certifications[:3]:
+            name = escape_latex(cert.get("name", ""))
+            issuer = escape_latex(cert.get("issuer", ""))
+            cert_line = r"\textbf{" + name + r"}"
+            if issuer:
+                cert_line += r" $|$ \emph{" + issuer + r"}"
+            
+            cert_section += r"    \resumeProjectHeading{" + cert_line + r"}{}" + "\n"
+        
+        cert_section += r"  \resumeSubHeadingListEnd" + "\n"
+        certifications_section = cert_section
     else:
         certifications_section = ""
     latex = latex.replace("<<CERTIFICATIONS_SECTION>>", certifications_section)
@@ -452,18 +520,27 @@ async def generate_ai_resume(
             start = edu.get('start_date', '')
             end = edu.get('end_date', '')
             dates = f"{start} -- {end}" if start and end else ""
+            location = escape_latex(edu.get('location', ''))
             
-            # Main line: Institution | Degree
-            edu_text = r"\textbf{" + escape_latex(edu.get('institution', '')) + r"}" + "\n"
-            edu_text += r"\textit{" + escape_latex(edu.get('degree', '')) + r"}"
-            if edu.get("gpa"):
-                edu_text += r" — CGPA: " + escape_latex(str(edu["gpa"]))
-            if dates:
-                edu_text += r" \hfill " + dates
+            # Use template format
+            institution = escape_latex(edu.get('institution', ''))
+            degree = escape_latex(edu.get('degree', ''))
             
-            edu_items.append(edu_text)
+            edu_items.append((institution, location, degree, dates, edu.get("gpa")))
         
-        education_section = r"\section{Education}" + "\n" + "\n\n".join(edu_items)
+        education_section = r"\section{Education}" + "\n"
+        education_section += r"  \resumeSubHeadingListStart" + "\n"
+        
+        for institution, location, degree, dates, gpa in edu_items:
+            education_section += r"    \resumeSubheading" + "\n"
+            education_section += f"      {{{institution}}}{{{location}}}\n"
+            education_section += f"      {{{degree}}}{{{dates}}}\n"
+            if gpa:
+                education_section += r"      \resumeItemListStart" + "\n"
+                education_section += r"        \resumeItem{CGPA: " + escape_latex(str(gpa)) + r"}" + "\n"
+                education_section += r"      \resumeItemListEnd" + "\n"
+        
+        education_section += r"  \resumeSubHeadingListEnd" + "\n"
     else:
         education_section = ""
     latex_template_with_data = latex_template_with_data.replace("<<EDUCATION_SECTION>>", education_section)
