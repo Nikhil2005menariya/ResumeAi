@@ -369,12 +369,16 @@ def generate_latex_resume(
             title = escape_latex(proj.get('title', ''))
             tech = proj.get("tech_stack", [])[:6]
             tech_str = ", ".join([escape_latex(t) for t in tech])
+            project_url = proj.get("url", "")
             github = proj.get("github_url", "")
             
-            # Project heading with tech and GitHub link
+            # Project heading with tech, live link, and GitHub link
             proj_line = r"\textbf{" + title + r"}"
             if tech_str:
                 proj_line += r" $|$ \emph{" + tech_str + r"}"
+            # Add live project link first, then GitHub
+            if project_url:
+                proj_line += r" \href{" + project_url + r"}{Live}"
             if github:
                 proj_line += r" \href{" + github + r"}{GitHub}"
             
@@ -632,6 +636,8 @@ Skills: {', '.join([s.get('name', '') for s in profile.get('skills', [])])}
         projects_text += f"\n{proj.get('title')}\n"
         projects_text += f"Tech: {', '.join(proj.get('tech_stack', []))}\n"
         projects_text += f"Description: {proj.get('description')}\n"
+        if proj.get('url'):
+            projects_text += f"Live Link: {proj.get('url')}\n"
         projects_text += f"GitHub: {proj.get('github_url', 'N/A')}\n"
         for highlight in proj.get('highlights', []):
             projects_text += f"- {highlight}\n"
