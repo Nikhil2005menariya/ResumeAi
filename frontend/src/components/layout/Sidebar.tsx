@@ -8,7 +8,6 @@ import {
   Search,
   Settings,
   LogOut,
-  Sparkles,
 } from 'lucide-react'
 import { useAuthStore } from '@/lib/store'
 
@@ -26,12 +25,14 @@ export function Sidebar() {
 
   return (
     <div className="flex h-full w-64 flex-col bg-card border-r">
-      {/* Logo */}
-      <div className="flex h-16 items-center gap-2 px-6 border-b">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-          <Sparkles className="h-5 w-5 text-primary-foreground" />
+      {/* Logo with SVG Play Button */}
+      <div className="flex h-16 items-center gap-3 px-6 border-b">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-violet-600 to-purple-600">
+          <svg className="h-6 w-6 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z" />
+          </svg>
         </div>
-        <span className="text-lg font-bold">Resume AI</span>
+        <span className="text-lg font-bold">Resume.AI</span>
       </div>
 
       {/* Navigation */}
@@ -60,9 +61,8 @@ export function Sidebar() {
       <div className="p-4">
         <Link
           to="/app/create-resume"
-          className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-primary to-purple-600 px-4 py-3 text-sm font-medium text-white shadow-lg hover:opacity-90 transition-opacity"
+          className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-purple-600 px-4 py-3 text-sm font-medium text-white shadow-lg hover:opacity-90 transition-opacity"
         >
-          <Sparkles className="h-4 w-4" />
           Generate Resume
         </Link>
       </div>

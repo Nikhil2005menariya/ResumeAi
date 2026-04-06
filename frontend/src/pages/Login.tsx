@@ -123,7 +123,7 @@ export function LoginPage() {
             <Sparkles className="h-7 w-7 text-white" />
           </div>
           <span className="text-2xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
-            Resume Maker AI
+            Resum.Ai
           </span>
         </div>
 

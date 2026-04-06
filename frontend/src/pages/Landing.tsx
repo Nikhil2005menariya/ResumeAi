@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, Target, Zap } from 'lucide-react';
+import { Sparkles, Target, Zap, Menu, X } from 'lucide-react';
 
 export default function Landing() {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(true);
 
   return (
     <div className="w-full min-h-screen bg-white overflow-x-hidden">
@@ -13,10 +14,10 @@ export default function Landing() {
       <nav className="sticky top-0 z-50 w-full bg-white border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-violet-600 rounded-lg flex items-center justify-center flex-shrink-0">
+            <div className="w-8 h-8 bg-gradient-to-br from-violet-600 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg shadow-violet-200">
               <Sparkles className="w-5 h-5 text-white" />
             </div>
-            <span className="text-lg font-bold text-gray-900">Resume.AI</span>
+            <span className="text-lg font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">Resume.AI</span>
           </div>
 
           <div className="hidden md:flex items-center gap-6">
@@ -34,20 +35,22 @@ export default function Landing() {
             </button>
           </div>
 
-          {/* Mobile Menu */}
+          {/* Mobile Menu Button */}
           <button 
             className="md:hidden p-2"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
         </div>
 
         {/* Mobile Menu Content */}
         {mobileMenuOpen && (
-          <div className="md:hidden bg-white border-t border-gray-100 px-6 py-4 space-y-3">
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="md:hidden bg-white border-t border-gray-100 px-6 py-4 space-y-3"
+          >
             <button 
               onClick={() => {
                 navigate('/login');
@@ -66,7 +69,7 @@ export default function Landing() {
             >
               Get Started
             </button>
-          </div>
+          </motion.div>
         )}
       </nav>
 
@@ -133,7 +136,70 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Features Section */}
+      {/* Animated Background Demo */}
+      <section className="w-full px-6 py-16 md:py-20 bg-gradient-to-b from-violet-50/30 to-white">
+        <div className="max-w-4xl mx-auto">
+          <div className="relative">
+            {/* Resume Card Animation */}
+            <motion.div
+              animate={isAnimating ? {
+                y: [0, -20, 0],
+                rotateX: [0, 5, 0],
+              } : {}}
+              transition={{
+                duration: 4,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+              className="bg-white rounded-lg shadow-xl p-8 border border-gray-200"
+              style={{ perspective: '1000px' }}
+            >
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-2 flex-1">
+                    <div className="h-4 bg-gradient-to-r from-violet-600 to-purple-600 rounded-full w-48" />
+                    <div className="h-3 bg-gray-200 rounded-full w-32" />
+                  </div>
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-violet-200 to-purple-200" />
+                </div>
+                <div className="space-y-3 pt-4">
+                  <div className="h-3 bg-gray-800 rounded w-24" />
+                  <div className="h-2 bg-gray-300 rounded w-full" />
+                  <div className="h-2 bg-gray-200 rounded w-5/6" />
+                  <div className="h-2 bg-gray-200 rounded w-4/5" />
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Professional Pause/Play Button */}
+            <motion.button
+              onClick={() => setIsAnimating(!isAnimating)}
+              className="absolute -bottom-8 left-1/2 -translate-x-1/2 w-16 h-16 bg-gradient-to-br from-violet-600 to-purple-600 rounded-full shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center text-white group"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              {isAnimating ? (
+                // Pause Icon
+                <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
+                  <rect x="6" y="4" width="4" height="16" rx="1" />
+                  <rect x="14" y="4" width="4" height="16" rx="1" />
+                </svg>
+              ) : (
+                // Play Icon
+                <svg className="w-7 h-7 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              )}
+            </motion.button>
+          </div>
+
+          <p className="text-center text-sm text-gray-600 mt-12">
+            {isAnimating ? 'Resume animations active' : 'Resume animations paused'}
+          </p>
+        </div>
+      </section>
+
+      {/* Features */}
       <section className="w-full px-6 py-20 md:py-24 bg-gray-50">
         <div className="max-w-6xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -214,7 +280,7 @@ export default function Landing() {
       <footer className="w-full py-8 px-6 border-t border-gray-100 bg-white">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-gray-600">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-violet-600 rounded flex items-center justify-center flex-shrink-0">
+            <div className="w-6 h-6 bg-gradient-to-br from-violet-600 to-purple-600 rounded flex items-center justify-center flex-shrink-0">
               <Sparkles className="w-4 h-4 text-white" />
             </div>
             <span className="font-semibold text-gray-900">Resume.AI</span>

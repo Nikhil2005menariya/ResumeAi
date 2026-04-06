@@ -35,7 +35,7 @@ export function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">
-            Welcome back, {user?.full_name?.split(' ')[0] || 'there'}! 👋
+            Welcome back, {user?.full_name?.split(' ')[0] || 'there'}!
           </h1>
           <p className="text-muted-foreground mt-1">
             Ready to create your next amazing resume?
