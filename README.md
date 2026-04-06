@@ -226,13 +226,132 @@ EOF
 
 ### 4. Docker LaTeX Setup (Required for PDF Generation)
 
+Resume.AI uses Docker with **texlive** to compile LaTeX to PDF. This provides reliable, sandboxed LaTeX compilation.
+
+#### Why Docker?
+- ✅ No local LaTeX installation needed
+- ✅ Consistent environment (like Overleaf)
+- ✅ Safe sandboxed compilation
+- ✅ Handles complex LaTeX packages
+
+#### Installation Steps
+
+**Step 1: Install Docker**
 ```bash
-# Pull texlive Docker image
+# macOS (using Homebrew)
+brew install --cask docker
+
+# Or download from: https://www.docker.com/products/docker-desktop
+
+# Verify installation
+docker --version
+```
+
+**Step 2: Pull texlive Docker Image**
+```bash
+# Pull the texlive image (one-time, ~3GB)
 docker pull texlive/texlive:latest
 
-# Or use in docker-compose (included)
-docker-compose up -d
+# Verify image
+docker images | grep texlive
 ```
+
+**Step 3: Start Docker Container**
+
+**Option A: Manual Docker Run**
+```bash
+# Start texlive container with LaTeX compilation endpoint
+docker run -d \
+  --name resume-latex \
+  -p 8080:8080 \
+  texlive/texlive:latest
+
+# Verify container is running
+docker ps | grep resume-latex
+
+# View logs
+docker logs resume-latex
+```
+
+**Option B: Using docker-compose (Recommended)**
+```bash
+# Already configured in docker-compose.yml
+docker-compose up -d texlive
+
+# Verify service
+docker-compose ps
+```
+
+#### LaTeX Compilation Methods (Auto-Fallback)
+
+Resume.AI uses a smart fallback system for PDF compilation:
+
+```
+1. Try LaTeX.Online (Free, no setup needed)
+   ↓ (if fails)
+2. Try Docker LaTeX (requires Docker running)
+   ↓ (if fails)
+3. Try Local pdflatex (if installed)
+   ↓ (if fails)
+4. Return Error (No ReportLab fallback)
+```
+
+**Best for Production:** Use Docker for reliability
+**Best for Development:** LaTeX.Online (no Docker needed) or Docker if you have it
+
+#### Verify Docker LaTeX Works
+
+```bash
+# Check if container is healthy
+curl -I http://localhost:8080
+
+# Expected: HTTP/1.1 200 OK (or similar)
+
+# View container logs for errors
+docker logs resume-latex
+
+# Restart if needed
+docker restart resume-latex
+```
+
+#### Troubleshooting Docker LaTeX
+
+**Container won't start:**
+```bash
+# Check Docker daemon
+docker info
+
+# If not running, start Docker Desktop (macOS/Windows)
+# or: sudo systemctl start docker (Linux)
+```
+
+**Port 8080 already in use:**
+```bash
+# Use different port
+docker run -d -p 8090:8080 texlive/texlive:latest
+
+# Update backend config: LATEX_SERVER_URL=http://localhost:8090
+```
+
+**Container running but LaTeX fails:**
+```bash
+# Check logs for errors
+docker logs resume-latex
+
+# Rebuild container
+docker-compose down
+docker pull texlive/texlive:latest
+docker-compose up -d texlive
+
+# Verify with simple LaTeX
+docker exec resume-latex pdflatex --version
+```
+
+**PDF generation still failing:**
+- Ensure Docker container is running: `docker ps`
+- Check backend logs for compilation errors
+- Verify LaTeX code is valid
+- Try LaTeX.Online instead (falls back automatically)
 
 ---
 
