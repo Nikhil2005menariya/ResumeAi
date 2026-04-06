@@ -16,6 +16,7 @@ from app.auth import (
     send_welcome_email,
     send_password_reset_email,
     auth0_service,
+    validate_password_length,
 )
 from app.models import UserCreate, UserResponse
 
@@ -72,6 +73,20 @@ class MessageResponse(BaseModel):
 async def signup(request: SignupRequest):
     """Sign up with email and password"""
     users_collection = get_collection("users")
+    
+    # Validate password length (bcrypt limit)
+    if not validate_password_length(request.password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password is too long (maximum 72 characters/bytes)"
+        )
+    
+    # Validate password strength
+    if len(request.password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters long"
+        )
     
     # Check if user already exists
     existing_user = await users_collection.find_one({"email": request.email})
@@ -360,6 +375,20 @@ async def reset_password(request: ResetPasswordRequest):
     """Reset password with OTP"""
     users_collection = get_collection("users")
     
+    # Validate password length (bcrypt limit)
+    if not validate_password_length(request.new_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password is too long (maximum 72 characters/bytes)"
+        )
+    
+    # Validate password strength
+    if len(request.new_password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters long"
+        )
+    
     # Verify OTP
     is_valid = await verify_otp(request.email, request.code)
     if not is_valid:
@@ -374,13 +403,6 @@ async def reset_password(request: ResetPasswordRequest):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
-        )
-    
-    # Validate password strength
-    if len(request.new_password) < 8:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password must be at least 8 characters long"
         )
     
     # Update password (works for both regular users and Auth0 users who want to add password)

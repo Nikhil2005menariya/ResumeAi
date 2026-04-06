@@ -1,6 +1,7 @@
 from app.auth.auth_service import (
     verify_password,
     get_password_hash,
+    validate_password_length,
     create_access_token,
     decode_token,
     get_current_user,
@@ -18,6 +19,7 @@ from app.auth.email_service import (
 __all__ = [
     "verify_password",
     "get_password_hash",
+    "validate_password_length",
     "create_access_token",
     "decode_token",
     "get_current_user",
