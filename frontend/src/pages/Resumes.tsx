@@ -63,7 +63,7 @@ export function ResumesPage() {
             View and download your AI-generated resumes
           </p>
         </div>
-        <Link to="/create-resume">
+        <Link to="/app/create-resume">
           <Button className="gap-2">
             <Plus className="h-4 w-4" />
             Generate New Resume
@@ -127,7 +127,7 @@ export function ResumesPage() {
                     <FileText className="h-3 w-3" />
                     LaTeX
                   </Button>
-                  <Link to={`/create-resume?edit=${resume.id}`}>
+                  <Link to={`/app/create-resume?edit=${resume.id}`}>
                     <Button variant="ghost" size="sm">
                       <Edit2 className="h-3 w-3" />
                     </Button>
@@ -145,7 +145,7 @@ export function ResumesPage() {
             <p className="text-muted-foreground text-sm mt-1">
               Generate your first AI-powered resume
             </p>
-            <Link to="/create-resume">
+            <Link to="/app/create-resume">
               <Button className="mt-4 gap-2">
                 <Plus className="h-4 w-4" />
                 Generate Resume

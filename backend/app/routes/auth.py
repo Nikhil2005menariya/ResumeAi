@@ -14,6 +14,7 @@ from app.auth import (
     get_current_user,
     send_otp_email,
     send_welcome_email,
+    send_password_reset_email,
     auth0_service,
 )
 from app.models import UserCreate, UserResponse
@@ -45,6 +46,16 @@ class ResendOTPRequest(BaseModel):
 
 class Auth0LoginRequest(BaseModel):
     access_token: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    code: str
+    new_password: str
 
 
 class TokenResponse(BaseModel):
@@ -298,6 +309,96 @@ async def auth0_login(request: Auth0LoginRequest):
             created_at=user["created_at"]
         )
     }
+
+
+@router.post("/forgot-password", response_model=MessageResponse)
+async def forgot_password(request: ForgotPasswordRequest):
+    """Request password reset OTP"""
+    users_collection = get_collection("users")
+    
+    # Check if user exists
+    user = await users_collection.find_one({"email": request.email})
+    if not user:
+        # Don't reveal if email exists or not for security
+        return {"message": "If an account with this email exists, a password reset code has been sent"}
+    
+    # Check if account is verified
+    if not user.get("is_verified"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Please verify your email first"
+        )
+    
+    # Update password reset tracking
+    from datetime import timedelta
+    await users_collection.update_one(
+        {"_id": user["_id"]},
+        {
+            "$set": {
+                "password_reset_requested_at": datetime.utcnow(),
+                "password_reset_expires_at": datetime.utcnow() + timedelta(minutes=10),
+                "updated_at": datetime.utcnow()
+            }
+        }
+    )
+    
+    # Generate and send OTP
+    otp_code = await create_otp(request.email)
+    email_sent = await send_password_reset_email(request.email, otp_code)
+    
+    if not email_sent:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to send password reset email"
+        )
+    
+    return {"message": "If an account with this email exists, a password reset code has been sent"}
+
+
+@router.post("/reset-password", response_model=MessageResponse)
+async def reset_password(request: ResetPasswordRequest):
+    """Reset password with OTP"""
+    users_collection = get_collection("users")
+    
+    # Verify OTP
+    is_valid = await verify_otp(request.email, request.code)
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset code"
+        )
+    
+    # Find user
+    user = await users_collection.find_one({"email": request.email})
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    # Validate password strength
+    if len(request.new_password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters long"
+        )
+    
+    # Update password (works for both regular users and Auth0 users who want to add password)
+    hashed_password = get_password_hash(request.new_password)
+    await users_collection.update_one(
+        {"_id": user["_id"]},
+        {
+            "$set": {
+                "hashed_password": hashed_password,
+                "last_password_change": datetime.utcnow(),
+                "password_reset_requested_at": None,
+                "password_reset_expires_at": None,
+                "updated_at": datetime.utcnow()
+            }
+        }
+    )
+    
+    return {"message": "Password reset successful. You can now login with your new password"}
 
 
 @router.get("/me", response_model=UserResponse)

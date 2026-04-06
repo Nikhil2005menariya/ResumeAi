@@ -1,7 +1,9 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/lib/store'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
+import Landing from '@/pages/Landing'
 import { LoginPage } from '@/pages/Login'
+import ForgotPassword from '@/pages/ForgotPassword'
 import { CallbackPage } from '@/pages/Callback'
 import { DashboardPage } from '@/pages/Dashboard'
 import { ProfilePage } from '@/pages/Profile'
@@ -27,8 +29,18 @@ function App() {
     <Routes>
       {/* Public routes */}
       <Route
+        path="/"
+        element={isAuthenticated ? <Navigate to="/app/dashboard" replace /> : <Landing />}
+      />
+      
+      <Route
         path="/login"
-        element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />}
+        element={isAuthenticated ? <Navigate to="/app/dashboard" replace /> : <LoginPage />}
+      />
+      
+      <Route
+        path="/forgot-password"
+        element={isAuthenticated ? <Navigate to="/app/dashboard" replace /> : <ForgotPassword />}
       />
       
       {/* Auth0 callback route */}
@@ -36,14 +48,13 @@ function App() {
 
       {/* Protected routes */}
       <Route
-        path="/"
+        path="/app"
         element={
           <ProtectedRoute>
             <DashboardLayout />
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="projects" element={<ProjectsPage />} />
@@ -53,7 +64,7 @@ function App() {
       </Route>
 
       {/* Catch all */}
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to={isAuthenticated ? "/app/dashboard" : "/"} replace />} />
     </Routes>
   )
 }

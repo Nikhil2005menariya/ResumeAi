@@ -12,6 +12,7 @@ from app.auth.auth_service import (
 from app.auth.email_service import (
     send_otp_email,
     send_welcome_email,
+    send_password_reset_email,
 )
 
 __all__ = [
@@ -26,4 +27,5 @@ __all__ = [
     "auth0_service",
     "send_otp_email",
     "send_welcome_email",
+    "send_password_reset_email",
 ]

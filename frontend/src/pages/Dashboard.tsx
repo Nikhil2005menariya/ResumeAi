@@ -41,7 +41,7 @@ export function DashboardPage() {
             Ready to create your next amazing resume?
           </p>
         </div>
-        <Link to="/create-resume">
+        <Link to="/app/create-resume">
           <Button size="lg" className="gap-2">
             <Sparkles className="h-4 w-4" />
             Generate New Resume
@@ -85,7 +85,7 @@ export function DashboardPage() {
 
       {/* Quick Actions */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Link to="/create-resume" className="block">
+        <Link to="/app/create-resume" className="block">
           <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer border-2 border-dashed hover:border-primary">
             <CardContent className="flex flex-col items-center justify-center py-8 text-center">
               <div className="rounded-full bg-primary/10 p-4 mb-4">
@@ -96,7 +96,7 @@ export function DashboardPage() {
             </CardContent>
           </Card>
         </Link>
-        <Link to="/jobs" className="block">
+        <Link to="/app/jobs" className="block">
           <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
             <CardContent className="flex flex-col items-center justify-center py-8 text-center">
               <div className="rounded-full bg-blue-100 p-4 mb-4">
@@ -107,7 +107,7 @@ export function DashboardPage() {
             </CardContent>
           </Card>
         </Link>
-        <Link to="/projects" className="block">
+        <Link to="/app/projects" className="block">
           <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
             <CardContent className="flex flex-col items-center justify-center py-8 text-center">
               <div className="rounded-full bg-purple-100 p-4 mb-4">
@@ -129,7 +129,7 @@ export function DashboardPage() {
               <CardTitle>Recent Resumes</CardTitle>
               <CardDescription>Your latest AI-generated resumes</CardDescription>
             </div>
-            <Link to="/resumes">
+            <Link to="/app/resumes">
               <Button variant="ghost" size="sm" className="gap-1">
                 View all <ArrowRight className="h-4 w-4" />
               </Button>
@@ -141,7 +141,7 @@ export function DashboardPage() {
                 {recentResumes.map((resume: any) => (
                   <Link
                     key={resume.id}
-                    to={`/resumes/${resume.id}`}
+                    to={`/app/resumes/${resume.id}`}
                     className="flex items-center gap-4 p-3 rounded-lg hover:bg-accent transition-colors"
                   >
                     <div className="rounded-lg bg-primary/10 p-2">
@@ -165,7 +165,7 @@ export function DashboardPage() {
               <div className="text-center py-8 text-muted-foreground">
                 <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
                 <p>No resumes yet</p>
-                <Link to="/create-resume">
+                <Link to="/app/create-resume">
                   <Button variant="link" size="sm">Create your first resume</Button>
                 </Link>
               </div>
@@ -180,7 +180,7 @@ export function DashboardPage() {
               <CardTitle>Your Projects</CardTitle>
               <CardDescription>Projects to include in resumes</CardDescription>
             </div>
-            <Link to="/projects">
+            <Link to="/app/projects">
               <Button variant="ghost" size="sm" className="gap-1">
                 View all <ArrowRight className="h-4 w-4" />
               </Button>
@@ -215,7 +215,7 @@ export function DashboardPage() {
               <div className="text-center py-8 text-muted-foreground">
                 <FolderKanban className="h-12 w-12 mx-auto mb-2 opacity-50" />
                 <p>No projects yet</p>
-                <Link to="/projects">
+                <Link to="/app/projects">
                   <Button variant="link" size="sm">Add your first project</Button>
                 </Link>
               </div>

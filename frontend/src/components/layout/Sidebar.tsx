@@ -13,11 +13,11 @@ import {
 import { useAuthStore } from '@/lib/store'
 
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'My Profile', href: '/profile', icon: User },
-  { name: 'Projects', href: '/projects', icon: FolderKanban },
-  { name: 'My Resumes', href: '/resumes', icon: FileText },
-  { name: 'Search Jobs', href: '/jobs', icon: Search },
+  { name: 'Dashboard', href: '/app/dashboard', icon: LayoutDashboard },
+  { name: 'My Profile', href: '/app/profile', icon: User },
+  { name: 'Projects', href: '/app/projects', icon: FolderKanban },
+  { name: 'My Resumes', href: '/app/resumes', icon: FileText },
+  { name: 'Search Jobs', href: '/app/jobs', icon: Search },
 ]
 
 export function Sidebar() {
@@ -59,7 +59,7 @@ export function Sidebar() {
       {/* Create Resume CTA */}
       <div className="p-4">
         <Link
-          to="/create-resume"
+          to="/app/create-resume"
           className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-primary to-purple-600 px-4 py-3 text-sm font-medium text-white shadow-lg hover:opacity-90 transition-opacity"
         >
           <Sparkles className="h-4 w-4" />

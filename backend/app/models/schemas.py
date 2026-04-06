@@ -37,6 +37,9 @@ class UserCreate(BaseModel):
 class UserInDB(UserBase):
     id: Optional[str] = Field(alias="_id", default=None)
     hashed_password: Optional[str] = None
+    password_reset_requested_at: Optional[datetime] = None
+    password_reset_expires_at: Optional[datetime] = None
+    last_password_change: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
