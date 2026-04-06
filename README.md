@@ -1,4 +1,4 @@
-# Resume.AI - AI-Powered Resume Generator & Job Matcher
+# Resum.AI - AI-Powered Resume Generator & Job Matcher
 
 A full-stack web application that generates professional, ATS-optimized resumes using AI and matches them with relevant job opportunities. Built with **React**, **FastAPI**, **LangGraph**, and **MongoDB**.
 
