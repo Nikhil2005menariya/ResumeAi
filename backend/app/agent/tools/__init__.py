@@ -3,6 +3,8 @@ import subprocess
 import tempfile
 import os
 import re
+import logging
+import asyncio
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 import aiohttp
@@ -11,6 +13,10 @@ import google.generativeai as genai
 
 from app.config import settings
 from app.database import get_collection
+
+# Configure logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 # Configure Gemini
 if settings.gemini_api_key:
@@ -898,100 +904,381 @@ def _process_itemize(itemize_block):
 
 # ==================== Job Search Tools ====================
 
+async def get_mock_jobs(query: str) -> List[Dict]:
+    """Return mock job data for development/offline testing"""
+    logger.info(f"📦 Using MOCK JOB DATA (no internet connection)")
+    
+    mock_jobs_db = {
+        "python": [
+            {
+                "title": "Senior Python Developer",
+                "company": "TechCorp Inc",
+                "location": "San Francisco, CA",
+                "description": "Looking for an experienced Python developer with expertise in FastAPI, Django, and microservices. You'll work on scalable backend systems.",
+                "url": "https://example.com/jobs/1",
+                "posted_date": "2024-01-15",
+                "job_type": "Full-time",
+                "source": "Mock Data"
+            },
+            {
+                "title": "Python Backend Engineer",
+                "company": "CloudAI Solutions",
+                "location": "Remote",
+                "description": "Build robust Python backend services using async frameworks. Experience with PostgreSQL and Redis required.",
+                "url": "https://example.com/jobs/2",
+                "posted_date": "2024-01-10",
+                "job_type": "Full-time",
+                "source": "Mock Data"
+            },
+            {
+                "title": "Junior Python Developer",
+                "company": "StartupXYZ",
+                "location": "New York, NY",
+                "description": "Entry-level Python role. We'll teach you FastAPI and modern web development. Great learning opportunity!",
+                "url": "https://example.com/jobs/3",
+                "posted_date": "2024-01-12",
+                "job_type": "Full-time",
+                "source": "Mock Data"
+            }
+        ],
+        "javascript": [
+            {
+                "title": "React Frontend Developer",
+                "company": "WebStudio",
+                "location": "Los Angeles, CA",
+                "description": "Expert React developer needed for SPA development. TypeScript, Vite, and shadcn UI experience preferred.",
+                "url": "https://example.com/jobs/4",
+                "posted_date": "2024-01-14",
+                "job_type": "Full-time",
+                "source": "Mock Data"
+            }
+        ],
+        "full stack": [
+            {
+                "title": "Full Stack Developer",
+                "company": "DevWorks",
+                "location": "Austin, TX",
+                "description": "Full stack engineer needed. Python backend (FastAPI) + React frontend. MongoDB experience a plus.",
+                "url": "https://example.com/jobs/5",
+                "posted_date": "2024-01-13",
+                "job_type": "Full-time",
+                "source": "Mock Data"
+            }
+        ]
+    }
+    
+    # Find matching jobs based on query keywords
+    query_lower = query.lower()
+    matching_jobs = []
+    
+    for category, jobs in mock_jobs_db.items():
+        if category in query_lower or any(word in query_lower for word in category.split()):
+            matching_jobs.extend(jobs)
+    
+    # If no matches, return python jobs as default
+    if not matching_jobs:
+        matching_jobs = mock_jobs_db.get("python", [])
+    
+    logger.info(f"📋 Returning {len(matching_jobs)} mock jobs for query: '{query}'")
+    return matching_jobs[:15]
+
+
 async def search_jobs_serpapi(query: str, location: str = "") -> List[Dict]:
-    """Search for jobs using SerpAPI with fallback to web scraping"""
+    """Search for jobs using SerpAPI with support for both google_jobs and google engines"""
     jobs = []
+    logger.info(f"🔍 Starting job search - Query: '{query}'")
     
     # Try SerpAPI first if available
     if settings.serpapi_key:
+        logger.info(f"✓ SerpAPI key configured (key={settings.serpapi_key[:10]}...), attempting search...")
         try:
+            # Try google_jobs engine first (without location which can cause timeout)
             params = {
                 "engine": "google_jobs",
                 "q": query,
                 "api_key": settings.serpapi_key
             }
             
-            if location:
-                params["location"] = location
+            logger.info(f"📤 Making SerpAPI request (google_jobs engine)...")
+            logger.info(f"   URL: https://serpapi.com/search")
+            logger.info(f"   Query: {query}")
             
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    "https://serpapi.com/search",
-                    params=params,
-                    timeout=10
-                ) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        jobs = data.get("jobs_results", [])
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        "https://serpapi.com/search",
+                        params=params,
+                        timeout=aiohttp.ClientTimeout(total=15)  # Reduced timeout
+                    ) as response:
+                        logger.info(f"📥 SerpAPI response status: {response.status}")
                         
-                        return [
-                            {
-                                "title": job.get("title", ""),
-                                "company": job.get("company_name", ""),
-                                "location": job.get("location", ""),
-                                "description": job.get("description", "")[:500],
-                                "url": job.get("related_links", [{}])[0].get("link", ""),
-                                "posted_date": job.get("detected_extensions", {}).get("posted_at", ""),
-                                "job_type": job.get("detected_extensions", {}).get("schedule_type", ""),
-                                "source": "SerpAPI"
-                            }
-                            for job in jobs[:10]
-                        ]
+                        if response.status == 200:
+                            data = await response.json()
+                            logger.info(f"   Response keys: {list(data.keys())}")
+                            
+                            # Try google_jobs format first
+                            jobs = data.get("jobs_results", [])
+                            logger.info(f"   → jobs_results: {len(jobs)} found")
+                            
+                            # If no results from google_jobs, try google engine with organic_results
+                            if not jobs:
+                                organic = data.get("organic_results", [])
+                                logger.info(f"   → organic_results: {len(organic)} found (no jobs_results)")
+                                jobs = _extract_jobs_from_organic_results(organic)
+                                logger.info(f"   → Extracted {len(jobs)} job listings from organic results")
+                            
+                            # If still no jobs from google_jobs, fallback to google engine
+                            if not jobs:
+                                logger.info(f"   → No results from google_jobs. Trying google engine without location...")
+                                params["engine"] = "google"
+                                
+                                logger.info(f"📤 Making SerpAPI request (google engine)...")
+                                async with session.get(
+                                    "https://serpapi.com/search",
+                                    params=params,
+                                    timeout=aiohttp.ClientTimeout(total=15)
+                                ) as google_response:
+                                    logger.info(f"📥 Google engine response status: {google_response.status}")
+                                    
+                                    if google_response.status == 200:
+                                        google_data = await google_response.json()
+                                        logger.info(f"   Response keys: {list(google_data.keys())}")
+                                        
+                                        organic = google_data.get("organic_results", [])
+                                        logger.info(f"   → organic_results: {len(organic)} found")
+                                        
+                                        jobs = _extract_jobs_from_organic_results(organic)
+                                        logger.info(f"   → Extracted {len(jobs)} job listings from google organic results")
+                            
+                            if jobs:
+                                formatted_jobs = [
+                                    {
+                                        "title": job.get("title", ""),
+                                        "company": job.get("company", job.get("company_name", "")),
+                                        "location": job.get("location", ""),
+                                        "description": job.get("description", job.get("snippet", ""))[:500],
+                                        "url": job.get("url", job.get("link", "")),
+                                        "posted_date": job.get("posted_date", ""),
+                                        "job_type": job.get("job_type", ""),
+                                        "source": "SerpAPI"
+                                    }
+                                    for job in jobs[:15]  # Get top 15 results
+                                ]
+                                logger.info(f"✅ Returning {len(formatted_jobs)} formatted jobs from SerpAPI")
+                                return formatted_jobs
+                            else:
+                                logger.warning(f"⚠️  No jobs found after all extraction attempts")
+                        else:
+                            logger.error(f"❌ SerpAPI returned status {response.status}")
+            except asyncio.TimeoutError:
+                logger.error(f"❌ SerpAPI request timed out (15s timeout)")
+            except Exception as e:
+                logger.error(f"❌ Network error: {e}")
         except Exception as e:
-            print(f"SerpAPI search error: {e}, falling back to web search")
+            logger.error(f"❌ SerpAPI search error: {e}", exc_info=True)
+    else:
+        logger.warning(f"⚠️  SerpAPI key not configured")
     
-    # Fallback to web scraping if SerpAPI fails or unavailable
-    if not jobs:
-        print("Using web scraping fallback for job search")
-        jobs = await search_jobs_web(query)
+    # Fallback to GitHub jobs API (free, reliable, no auth needed)
+    logger.info(f"🔄 Trying GitHub Jobs API fallback...")
+    github_jobs = await search_github_jobs(query)
+    logger.info(f"   GitHub Jobs API returned {len(github_jobs)} jobs")
+    if github_jobs:
+        return github_jobs
     
+    # Fallback to web scraping if both fail
+    logger.info(f"🔄 Using web scraping fallback for job search")
+    jobs = await search_jobs_web(query)
+    logger.info(f"   Web scraping returned {len(jobs)} jobs")
+    if jobs:
+        return jobs
+    
+    # Final fallback: Use mock data (no internet connection or all APIs failed)
+    logger.warning(f"⚠️  All external APIs failed. Using mock job data for development.")
+    logger.warning(f"✅ SUGGESTION: Check your internet connection or configure SerpAPI for production")
+    mock_jobs = await get_mock_jobs(query)
+    return mock_jobs
+
+
+def _extract_jobs_from_organic_results(organic_results: List[Dict]) -> List[Dict]:
+    """Extract job listings from Google organic search results"""
+    logger.info(f"🔎 Extracting jobs from {len(organic_results)} organic results...")
+    
+    jobs = []
+    job_keywords = [
+        "job", "hire", "hiring", "position", "vacancy", "opening",
+        "career", "apply now", "careers", "apply", "employment",
+        "internship", "role", "opportunity", "apply here"
+    ]
+    
+    for idx, result in enumerate(organic_results):
+        title = result.get("title", "")
+        snippet = result.get("snippet", "")
+        combined_text = (snippet + " " + title).lower()
+        
+        # Filter for job-related results
+        is_job = any(keyword in combined_text for keyword in job_keywords)
+        
+        logger.debug(f"   [{idx+1}] Title: '{title}' - Is Job: {is_job}")
+        
+        if is_job:
+            job_obj = {
+                "title": title,
+                "company": _extract_company_from_snippet(result),
+                "location": _extract_location_from_snippet(result),
+                "description": snippet,
+                "url": result.get("link", ""),
+                "posted_date": "",
+                "job_type": ""
+            }
+            jobs.append(job_obj)
+            logger.debug(f"      ✓ Added job: {job_obj['title'][:50]}...")
+    
+    logger.info(f"✅ Extracted {len(jobs)} job listings from organic results")
     return jobs
+
+
+def _extract_company_from_snippet(result: Dict) -> str:
+    """Extract company name from search result"""
+    # Try to extract from snippet if it contains common patterns
+    snippet = result.get("snippet", "")
+    # Common pattern: "Company - Job Title - Location"
+    if " - " in snippet:
+        parts = snippet.split(" - ")
+        if len(parts) > 0:
+            # Usually the first part contains company info
+            company_part = parts[0].strip()
+            # Remove common prefixes
+            for prefix in ["New", "Save", "Open", "View", "Post"]:
+                if company_part.startswith(prefix):
+                    return company_part[len(prefix):].strip()
+            return company_part[:50]  # Limit to 50 chars
+    return ""
+
+
+def _extract_location_from_snippet(result: Dict) -> str:
+    """Extract location from search result"""
+    snippet = result.get("snippet", "")
+    # Look for common location patterns
+    location_keywords = ["location", "based in", "office", "remote", "work"]
+    
+    for keyword in location_keywords:
+        if keyword in snippet.lower():
+            # Try to extract text after the keyword
+            parts = snippet.split(keyword)
+            if len(parts) > 1:
+                location_text = parts[-1][:100].strip()
+                # Remove extra punctuation
+                return location_text.rstrip(".,")
+    
+    return ""
+
+
+async def search_github_jobs(query: str) -> List[Dict]:
+    """Search GitHub Jobs API - reliable free API with no auth needed"""
+    jobs = []
+    logger.info(f"📡 Trying GitHub Jobs API for query: '{query}'...")
+    
+    try:
+        # GitHub Jobs API endpoint
+        url = "https://jobs.github.com/positions.json"
+        params = {
+            "description": query,
+            "full_time": "true"
+        }
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                url,
+                params=params,
+                timeout=aiohttp.ClientTimeout(total=10)
+            ) as response:
+                logger.info(f"   Response status: {response.status}")
+                
+                if response.status == 200:
+                    data = await response.json()
+                    logger.info(f"   GitHub Jobs returned {len(data)} results")
+                    
+                    # Parse GitHub Jobs response
+                    for job in data[:15]:
+                        jobs.append({
+                            "title": job.get("title", ""),
+                            "company": job.get("company", ""),
+                            "location": job.get("location", ""),
+                            "description": job.get("description", "")[:500],
+                            "url": job.get("url", ""),
+                            "posted_date": job.get("created_at", ""),
+                            "job_type": "Full-time",
+                            "source": "GitHub Jobs"
+                        })
+                    
+                    if jobs:
+                        logger.info(f"✅ GitHub Jobs API returned {len(jobs)} formatted jobs")
+                        return jobs
+                    else:
+                        logger.warning(f"⚠️  No jobs in GitHub Jobs response")
+    except asyncio.TimeoutError:
+        logger.warning(f"⚠️  GitHub Jobs API request timed out")
+    except Exception as e:
+        logger.warning(f"⚠️  GitHub Jobs API error: {e}")
+    
+    return []
 
 
 async def search_jobs_web(query: str) -> List[Dict]:
     """Fallback web search for jobs using multiple sources"""
     jobs = []
     
-    # Try multiple job boards
-    sources = [
-        {
-            "url": f"https://www.indeed.com/jobs?q={query.replace(' ', '+')}",
-            "parser": "indeed"
-        },
-        {
-            "url": f"https://www.linkedin.com/jobs/search?keywords={query.replace(' ', '+')}",
-            "parser": "linkedin"
-        }
-    ]
+    # Try job board search directly
+    search_terms = query.split()[:3]  # Use first 3 words
+    search_query = " ".join(search_terms)
     
+    logger.info(f"🌐 Web scraping for jobs: '{search_query}'")
+    
+    # Try Indeed
     try:
+        logger.info(f"   Trying Indeed...")
+        url = f"https://www.indeed.com/jobs?q={search_query.replace(' ', '+')}"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        }
+        
         async with aiohttp.ClientSession() as session:
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-            }
-            
-            for source in sources:
-                try:
-                    async with session.get(source["url"], headers=headers, timeout=10) as response:
-                        if response.status == 200:
-                            html = await response.text()
-                            soup = BeautifulSoup(html, "html.parser")
-                            
-                            if source["parser"] == "indeed":
-                                jobs.extend(_parse_indeed_jobs(soup, query))
-                            elif source["parser"] == "linkedin":
-                                jobs.extend(_parse_linkedin_jobs(soup, query))
-                            
-                            if len(jobs) >= 10:  # Limit results
-                                break
-                except Exception as e:
-                    print(f"Error scraping {source['url']}: {e}")
-                    continue
+            async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=8)) as response:
+                if response.status == 200:
+                    html = await response.text()
                     
+                    # Look for job titles and links in the HTML
+                    import re as regex_module
+                    
+                    # Extract job postings - Indeed uses specific patterns
+                    job_patterns = regex_module.findall(
+                        r'<h2[^>]*>\s*<a[^>]*href="([^"]*)"[^>]*>([^<]+)</a>\s*</h2>',
+                        html
+                    )
+                    
+                    for url_path, title in job_patterns[:10]:
+                        if title.strip():
+                            jobs.append({
+                                "title": title.strip(),
+                                "company": "Indeed",
+                                "location": "",
+                                "description": f"Job posting on Indeed - {title}",
+                                "url": f"https://www.indeed.com{url_path}" if not url_path.startswith('http') else url_path,
+                                "posted_date": "",
+                                "job_type": "",
+                                "source": "Indeed"
+                            })
+                    
+                    logger.info(f"   Found {len(jobs)} jobs from Indeed")
+                    if jobs:
+                        return jobs
     except Exception as e:
-        print(f"Job web search error: {e}")
+        logger.warning(f"   ⚠️  Indeed scraping failed: {e}")
     
-    return jobs[:10]  # Limit to 10 results
+    # Fallback: Return empty but with a message in logs
+    logger.warning(f"⚠️  Web scraping returned no jobs")
+    return jobs
 
 
 def _parse_indeed_jobs(soup: BeautifulSoup, query: str) -> List[Dict]:
@@ -1074,37 +1361,173 @@ def calculate_job_relevance(job: Dict, profile: Dict, skills: List[str]) -> floa
     score = 0.0
     max_score = 100.0
     
-    job_text = (job.get("title", "") + " " + job.get("description", "")).lower()
+    job_text = (
+        job.get("title", "") + " " + 
+        job.get("company", "") + " " + 
+        job.get("description", "")
+    ).lower()
     
-    # Skill matching (up to 60 points)
+    # Build rich user profile text for matching
+    profile_text = _build_profile_text(profile).lower()
+    
+    # Skill matching (up to 40 points) - with semantic matching
     skill_matches = 0
     for skill in skills:
-        if skill.lower() in job_text:
+        skill_lower = skill.lower()
+        if _skill_matches(skill_lower, job_text):
             skill_matches += 1
     
     if skills:
-        score += (skill_matches / len(skills)) * 60
+        score += (skill_matches / len(skills)) * 40
     
-    # Experience level matching (up to 20 points)
+    # Project tech stack matching (up to 15 points)
+    projects = profile.get("projects", [])
+    if projects:
+        tech_stack = []
+        for project in projects:
+            if project.get("technologies"):
+                tech_stack.extend(project["technologies"].split(","))
+        
+        tech_matches = 0
+        for tech in tech_stack:
+            tech_lower = tech.strip().lower()
+            if _skill_matches(tech_lower, job_text):
+                tech_matches += 1
+        
+        if tech_stack:
+            score += (min(tech_matches, 5) / 5) * 15
+    
+    # Experience level matching (up to 15 points)
     if profile.get("experience"):
         years_exp = len(profile["experience"])
-        if "senior" in job_text and years_exp >= 5:
-            score += 20
-        elif "junior" in job_text and years_exp < 3:
-            score += 20
-        elif "mid" in job_text and 2 <= years_exp <= 5:
-            score += 20
-        else:
-            score += 10
+        seniority_score = _match_seniority_level(years_exp, job_text)
+        score += seniority_score * 15
     
-    # Education matching (up to 20 points)
+    # Education field matching (up to 10 points)
     if profile.get("education"):
+        edu_score = 0
         for edu in profile["education"]:
-            if edu.get("field_of_study", "").lower() in job_text:
-                score += 20
+            field = edu.get("field_of_study", "").lower()
+            if field and field in job_text:
+                edu_score = 1
                 break
+        score += edu_score * 10
+    
+    # Location matching (up to 10 points)
+    user_location = profile.get("location", "").lower()
+    job_location = job.get("location", "").lower()
+    if user_location and job_location:
+        if user_location in job_location or job_location in user_location or "remote" in job_location:
+            score += 10
+    elif "remote" in job_location:
+        score += 8
+    
+    # Headline/summary matching (up to 10 points)
+    headline = profile.get("headline", "").lower()
+    summary = profile.get("summary", "").lower()
+    if headline and headline in job_text:
+        score += 10
+    elif summary and any(word in job_text for word in summary.split()[:10]):
+        score += 5
     
     return min(score, max_score)
+
+
+def _build_profile_text(profile: Dict) -> str:
+    """Build enriched profile text for matching"""
+    parts = []
+    
+    if profile.get("headline"):
+        parts.append(profile["headline"])
+    if profile.get("summary"):
+        parts.append(profile["summary"])
+    
+    for exp in profile.get("experience", []):
+        parts.append(exp.get("position", ""))
+        parts.append(exp.get("company", ""))
+        parts.append(exp.get("description", ""))
+    
+    for skill in profile.get("skills", []):
+        parts.append(skill.get("name", ""))
+    
+    return " ".join(parts)
+
+
+def _skill_matches(skill: str, job_text: str) -> bool:
+    """Check if a skill matches the job (semantic matching)"""
+    if not skill:
+        return False
+    
+    # Direct match
+    if skill in job_text:
+        return True
+    
+    # Semantic aliases for common technologies
+    aliases = {
+        "python": ["python", "py", "django", "flask", "fastapi"],
+        "javascript": ["javascript", "js", "node", "react", "vue", "angular", "typescript"],
+        "react": ["react", "reactjs", "react.js"],
+        "vue": ["vue", "vuejs", "vue.js"],
+        "angular": ["angular", "angularjs"],
+        "typescript": ["typescript", "ts"],
+        "node": ["node", "nodejs", "node.js"],
+        "java": ["java", "spring", "spring boot", "maven", "gradle"],
+        "csharp": ["csharp", "c#", ".net", "dotnet"],
+        "golang": ["golang", "go"],
+        "rust": ["rust"],
+        "sql": ["sql", "mysql", "postgres", "postgresql", "mongodb", "sqlite"],
+        "database": ["database", "db", "sql", "mongodb", "postgres", "mysql"],
+        "aws": ["aws", "amazon web services", "ec2", "s3", "lambda"],
+        "cloud": ["cloud", "aws", "azure", "gcp", "cloudflare"],
+        "docker": ["docker", "container", "kubernetes", "k8s"],
+        "ml": ["machine learning", "ml", "ai", "artificial intelligence", "deep learning"],
+        "api": ["api", "rest", "graphql", "webhook"],
+        "testing": ["test", "jest", "pytest", "unittest", "mocha"]
+    }
+    
+    # Check aliases
+    skill_lower = skill.lower()
+    for primary, related in aliases.items():
+        if skill_lower in related:
+            # Check if any related term appears in job text
+            for term in related:
+                if term in job_text:
+                    return True
+    
+    return False
+
+
+def _match_seniority_level(years_exp: int, job_text: str) -> float:
+    """Match user experience level to job requirements"""
+    seniority_keywords = {
+        "junior": ["junior", "entry level", "fresh", "graduate", "0-2 years"],
+        "mid": ["mid-level", "mid level", "3-5 years", "intermediate", "2-4 years"],
+        "senior": ["senior", "lead", "principal", "5+ years", "6+ years", "10+ years"],
+        "any": ["all levels", "any level", "experience not required"]
+    }
+    
+    # If job says "all levels", it's a good match for anyone
+    if any(keyword in job_text for keyword in seniority_keywords["any"]):
+        return 1.0
+    
+    if years_exp < 2:
+        # Good match for junior roles
+        if any(keyword in job_text for keyword in seniority_keywords["junior"]):
+            return 1.0
+        # Okay match for any other role
+        return 0.5
+    elif years_exp < 5:
+        # Good match for mid-level roles
+        if any(keyword in job_text for keyword in seniority_keywords["mid"]):
+            return 1.0
+        # Okay match for junior or senior
+        return 0.6
+    else:
+        # Good match for senior roles
+        if any(keyword in job_text for keyword in seniority_keywords["senior"]):
+            return 1.0
+        # Okay match for any role if very experienced
+        return 0.7
 
 
 # ==================== AI Generation Tools ====================
