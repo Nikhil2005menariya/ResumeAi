@@ -417,6 +417,12 @@ async def refine_resume(
         
         # Update the resume with new content if we have LaTeX
         if final_state and isinstance(final_state, dict) and final_state.get("latex_code"):
+            # Delete old PDF cache to ensure preview shows updated content
+            pdf_path = PDF_STORAGE_DIR / f"{resume_id}.pdf"
+            if pdf_path.exists():
+                pdf_path.unlink()
+                print(f"🗑️ Deleted old PDF cache for resume {resume_id}")
+            
             new_version = resume.get("version", 1) + 1
             await resumes_collection.update_one(
                 {"_id": ObjectId(resume_id)},
@@ -463,5 +469,11 @@ async def delete_resume(
     
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Resume not found")
+    
+    # Delete the cached PDF file to avoid orphaned files
+    pdf_path = PDF_STORAGE_DIR / f"{resume_id}.pdf"
+    if pdf_path.exists():
+        pdf_path.unlink()
+        print(f"🗑️ Deleted PDF file for deleted resume {resume_id}")
     
     return None

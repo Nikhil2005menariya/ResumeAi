@@ -983,97 +983,171 @@ async def get_mock_jobs(query: str) -> List[Dict]:
     return matching_jobs[:15]
 
 
-async def search_jobs_serpapi(query: str, location: str = "") -> List[Dict]:
-    """Search for jobs using SerpAPI with support for both google_jobs and google engines"""
+def _deduplicate_jobs(jobs: List[Dict]) -> List[Dict]:
+    """Remove duplicate jobs based on title + company"""
+    seen = set()
+    unique_jobs = []
+    for job in jobs:
+        key = f"{job.get('title', '').lower()}|{job.get('company', '').lower()}"
+        if key not in seen and job.get('title'):
+            seen.add(key)
+            unique_jobs.append(job)
+    return unique_jobs
+
+
+async def _search_google_jobs(query: str, location: str) -> List[Dict]:
+    """Search using Google Jobs engine (aggregates LinkedIn, Indeed, Naukri, etc.)"""
     jobs = []
+    try:
+        params = {
+            "engine": "google_jobs",
+            "q": query,
+            "api_key": settings.serpapi_key
+        }
+        
+        if location:
+            params["location"] = location
+            logger.info(f"   🌍 Using location: {location}")
+        
+        logger.info(f"📤 Making SerpAPI request (google_jobs engine)...")
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                "https://serpapi.com/search",
+                params=params,
+                timeout=aiohttp.ClientTimeout(total=15)
+            ) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    jobs = data.get("jobs_results", [])
+                    logger.info(f"   ✓ Google Jobs: {len(jobs)} results")
+                    
+                    # Format jobs
+                    return [{
+                        "title": job.get("title", ""),
+                        "company": job.get("company_name", ""),
+                        "location": job.get("location", ""),
+                        "description": job.get("description", "")[:500],
+                        "url": job.get("share_url", job.get("apply_link", "")),
+                        "posted_date": job.get("detected_extensions", {}).get("posted_at", ""),
+                        "job_type": job.get("detected_extensions", {}).get("schedule_type", ""),
+                        "source": "Google Jobs"
+                    } for job in jobs[:10]]
+    except Exception as e:
+        logger.error(f"   ❌ Google Jobs error: {e}")
+    return []
+
+
+async def _search_india_job_sites(query: str, location: str) -> List[Dict]:
+    """Search India-specific job boards (Internshala, Naukri, Shine)"""
+    jobs = []
+    sites = [
+        f"site:internshala.com {query} {location}",
+        f"site:naukri.com {query} {location}",
+        f"site:shine.com {query} {location}",
+        f"site:foundit.in {query} {location}"
+    ]
+    
+    try:
+        for site_query in sites:
+            params = {
+                "engine": "google",
+                "q": site_query,
+                "api_key": settings.serpapi_key,
+                "num": 5  # 5 results per site
+            }
+            
+            logger.info(f"📤 Searching: {site_query.split('site:')[1].split()[0]}")
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    "https://serpapi.com/search",
+                    params=params,
+                    timeout=aiohttp.ClientTimeout(total=10)
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        organic = data.get("organic_results", [])
+                        site_jobs = _extract_jobs_from_organic_results(organic)
+                        logger.info(f"   ✓ {len(site_jobs)} jobs found")
+                        jobs.extend(site_jobs)
+    except Exception as e:
+        logger.error(f"   ❌ India job sites error: {e}")
+    
+    return jobs[:15]  # Max 15 from India sites
+
+
+async def _search_major_job_boards(query: str, location: str) -> List[Dict]:
+    """Search major job boards (Glassdoor, LinkedIn, Indeed)"""
+    jobs = []
+    sites = [
+        f"site:linkedin.com/jobs {query} {location}",
+        f"site:glassdoor.com {query} {location}",
+        f"site:indeed.com {query} {location}"
+    ]
+    
+    try:
+        for site_query in sites:
+            params = {
+                "engine": "google",
+                "q": site_query,
+                "api_key": settings.serpapi_key,
+                "num": 5
+            }
+            
+            logger.info(f"📤 Searching: {site_query.split('site:')[1].split('/')[0]}")
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    "https://serpapi.com/search",
+                    params=params,
+                    timeout=aiohttp.ClientTimeout(total=10)
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        organic = data.get("organic_results", [])
+                        site_jobs = _extract_jobs_from_organic_results(organic)
+                        logger.info(f"   ✓ {len(site_jobs)} jobs found")
+                        jobs.extend(site_jobs)
+    except Exception as e:
+        logger.error(f"   ❌ Major job boards error: {e}")
+    
+    return jobs[:10]  # Max 10 from major boards
+
+
+async def search_jobs_serpapi(query: str, location: str = "") -> List[Dict]:
+    """Search for jobs using SerpAPI with support for both google_jobs and google engines
+    
+    Enhanced to search multiple job sites including:
+    - LinkedIn, Indeed, Naukri, Glassdoor
+    - Internshala (India-focused)
+    - Company career pages
+    """
+    all_jobs = []
     logger.info(f"🔍 Starting job search - Query: '{query}'")
     
     # Try SerpAPI first if available
     if settings.serpapi_key:
         logger.info(f"✓ SerpAPI key configured (key={settings.serpapi_key[:10]}...), attempting search...")
         try:
-            # Try google_jobs engine first (without location which can cause timeout)
-            params = {
-                "engine": "google_jobs",
-                "q": query,
-                "api_key": settings.serpapi_key
-            }
+            # Strategy 1: Google Jobs (aggregates LinkedIn, Indeed, Naukri, etc.)
+            all_jobs.extend(await _search_google_jobs(query, location))
             
-            logger.info(f"📤 Making SerpAPI request (google_jobs engine)...")
-            logger.info(f"   URL: https://serpapi.com/search")
-            logger.info(f"   Query: {query}")
+            # Strategy 2: Search specific sites for India (Internshala, Naukri)
+            if location and "India" in location:
+                logger.info(f"🇮🇳 India location detected, searching India-specific job boards...")
+                all_jobs.extend(await _search_india_job_sites(query, location))
             
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(
-                        "https://serpapi.com/search",
-                        params=params,
-                        timeout=aiohttp.ClientTimeout(total=15)  # Reduced timeout
-                    ) as response:
-                        logger.info(f"📥 SerpAPI response status: {response.status}")
-                        
-                        if response.status == 200:
-                            data = await response.json()
-                            logger.info(f"   Response keys: {list(data.keys())}")
-                            
-                            # Try google_jobs format first
-                            jobs = data.get("jobs_results", [])
-                            logger.info(f"   → jobs_results: {len(jobs)} found")
-                            
-                            # If no results from google_jobs, try google engine with organic_results
-                            if not jobs:
-                                organic = data.get("organic_results", [])
-                                logger.info(f"   → organic_results: {len(organic)} found (no jobs_results)")
-                                jobs = _extract_jobs_from_organic_results(organic)
-                                logger.info(f"   → Extracted {len(jobs)} job listings from organic results")
-                            
-                            # If still no jobs from google_jobs, fallback to google engine
-                            if not jobs:
-                                logger.info(f"   → No results from google_jobs. Trying google engine without location...")
-                                params["engine"] = "google"
-                                
-                                logger.info(f"📤 Making SerpAPI request (google engine)...")
-                                async with session.get(
-                                    "https://serpapi.com/search",
-                                    params=params,
-                                    timeout=aiohttp.ClientTimeout(total=15)
-                                ) as google_response:
-                                    logger.info(f"📥 Google engine response status: {google_response.status}")
-                                    
-                                    if google_response.status == 200:
-                                        google_data = await google_response.json()
-                                        logger.info(f"   Response keys: {list(google_data.keys())}")
-                                        
-                                        organic = google_data.get("organic_results", [])
-                                        logger.info(f"   → organic_results: {len(organic)} found")
-                                        
-                                        jobs = _extract_jobs_from_organic_results(organic)
-                                        logger.info(f"   → Extracted {len(jobs)} job listings from google organic results")
-                            
-                            if jobs:
-                                formatted_jobs = [
-                                    {
-                                        "title": job.get("title", ""),
-                                        "company": job.get("company", job.get("company_name", "")),
-                                        "location": job.get("location", ""),
-                                        "description": job.get("description", job.get("snippet", ""))[:500],
-                                        "url": job.get("url", job.get("link", "")),
-                                        "posted_date": job.get("posted_date", ""),
-                                        "job_type": job.get("job_type", ""),
-                                        "source": "SerpAPI"
-                                    }
-                                    for job in jobs[:15]  # Get top 15 results
-                                ]
-                                logger.info(f"✅ Returning {len(formatted_jobs)} formatted jobs from SerpAPI")
-                                return formatted_jobs
-                            else:
-                                logger.warning(f"⚠️  No jobs found after all extraction attempts")
-                        else:
-                            logger.error(f"❌ SerpAPI returned status {response.status}")
-            except asyncio.TimeoutError:
-                logger.error(f"❌ SerpAPI request timed out (15s timeout)")
-            except Exception as e:
-                logger.error(f"❌ Network error: {e}")
+            # Strategy 3: Search major job boards (Glassdoor, LinkedIn)
+            all_jobs.extend(await _search_major_job_boards(query, location))
+            
+            # Remove duplicates based on title + company
+            unique_jobs = _deduplicate_jobs(all_jobs)
+            logger.info(f"✅ Total unique jobs found: {len(unique_jobs)} (from {len(all_jobs)} total)")
+            
+            if unique_jobs:
+                return unique_jobs[:20]  # Return top 20
+                
         except Exception as e:
             logger.error(f"❌ SerpAPI search error: {e}", exc_info=True)
     else:

@@ -2,6 +2,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 import json
+import logging
+import sys
 
 from app.config import settings
 from app.database import db
@@ -13,6 +15,20 @@ from app.routes import (
     jobs_router,
     websocket_router,
 )
+
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler('/tmp/resume_maker.log')
+    ]
+)
+
+logger = logging.getLogger(__name__)
+logger.info("🚀 Application startup...")
+
 
 
 @asynccontextmanager

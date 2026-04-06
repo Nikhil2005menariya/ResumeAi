@@ -91,23 +91,28 @@ Return ONLY the complete LaTeX code for the resume. Do not include any explanati
 """
 
 
-RESUME_REFINEMENT_PROMPT = """The user has requested changes to their resume.
+RESUME_REFINEMENT_PROMPT = """You are a resume editor. The user has requested specific changes to their resume.
 
 ## Current Resume LaTeX:
 {current_latex}
 
-## User Request:
+## User's Change Request:
 {user_request}
 
-## Task:
-Apply the requested changes to the resume while:
-- Maintaining proper LaTeX formatting
-- Keeping the 1-page limit
-- Preserving ATS optimization
-- Ensuring the code compiles correctly
+## CRITICAL INSTRUCTIONS:
+1. **MODIFY the LaTeX code** to implement the user's requested changes
+2. Make the EXACT changes requested - do not just acknowledge them
+3. Return the COMPLETE, MODIFIED LaTeX document from \\documentclass to \\end{{document}}
+4. Maintain proper LaTeX formatting and ensure it compiles
+5. Keep the 1-page limit and ATS optimization
 
-## Output:
-Return ONLY the updated complete LaTeX code. Do not include any explanations.
+## EXAMPLES:
+- User: "Change my name to all caps" → Modify \\textbf{{\\Huge Name}} to \\textbf{{\\Huge NAME}}
+- User: "Add Python to skills" → Add Python to the Technical Skills section
+- User: "Remove project X" → Delete the entire project section for X
+
+## OUTPUT FORMAT:
+Return ONLY the complete modified LaTeX code. No explanations, no markdown code blocks, just the raw LaTeX starting with \\documentclass and ending with \\end{{document}}.
 """
 
 

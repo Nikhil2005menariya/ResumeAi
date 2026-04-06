@@ -6,9 +6,14 @@ Defines the agent workflow for resume generation and job search
 from typing import Dict, List, Any, Optional, TypedDict, Annotated
 from enum import Enum
 import operator
+import logging
 from datetime import datetime
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
+
+# Configure logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 from app.agent.memory import AgentMemory
 from app.agent.tools import (
@@ -110,8 +115,15 @@ async def retrieve_user_data(state: AgentState) -> Dict:
     """Retrieve user profile and projects"""
     user_id = state["user_id"]
     
+    logger.info(f"📥 Retrieving user data for user_id: {user_id}")
+    
     profile = await get_user_profile(user_id)
     projects = await get_user_projects(user_id)
+    
+    logger.info(f"✅ Retrieved:")
+    logger.info(f"   Profile: {list(profile.keys()) if profile else 'Empty'}")
+    logger.info(f"   Projects: {len(projects)}")
+    logger.info(f"   Skills: {[s.get('name', '') for s in profile.get('skills', [])][:5] if profile else []}")
     
     return {
         "profile": profile,
@@ -296,6 +308,14 @@ async def save_resume(state: AgentState) -> Dict:
         # Update existing resume
         resume_data["updated_at"] = datetime.utcnow()
         
+        # Delete old PDF cache to ensure preview shows updated content
+        from pathlib import Path
+        PDF_STORAGE_DIR = Path(__file__).parent.parent.parent / "storage" / "pdfs"
+        pdf_path = PDF_STORAGE_DIR / f"{current_resume_id}.pdf"
+        if pdf_path.exists():
+            pdf_path.unlink()
+            print(f"🗑️ Deleted old PDF cache for resume {current_resume_id}")
+        
         result = await resumes_collection.update_one(
             {"_id": ObjectId(current_resume_id)},
             {"$set": resume_data}
@@ -418,11 +438,20 @@ async def refine_resume(state: AgentState) -> Dict:
             if not new_latex or "\\documentclass" not in new_latex:
                 new_latex = current_latex
         
+        # Validate that changes were actually made
+        if new_latex.strip() == current_latex.strip():
+            print(f"⚠️  WARNING: LaTeX was not modified by the agent. Using original.")
+            status_msg = "No changes were made to the resume. Please try rephrasing your request."
+        else:
+            status_msg = f"Resume refined based on your feedback"
+            print(f"✅ LaTeX was modified ({len(new_latex)} chars vs {len(current_latex)} original)")
+        
         return {
             "latex_code": new_latex,
             "current_resume_id": current_resume_id,  # Preserve resume ID
             "resume_id": current_resume_id,  # Also set resume_id
             "status": AgentStatus.REFINING.value,
+            "status_message": status_msg,
             "status_message": "Resume refined based on your feedback",
             "messages": [{"role": "assistant", "content": "I've updated the resume. Compiling PDF..."}]
         }
@@ -437,11 +466,21 @@ async def refine_resume(state: AgentState) -> Dict:
 
 
 async def search_jobs_node(state: AgentState) -> Dict:
-    """Search for jobs based on user query"""
+    """Search for jobs based on user query and profile"""
+    logger.info("=" * 80)
+    logger.info("🔍 SEARCH_JOBS_NODE STARTED")
+    logger.info("=" * 80)
+    
     search_query = state.get("search_query", "")
     profile = state.get("profile", {})
     
+    logger.info(f"📋 Input State:")
+    logger.info(f"   Search Query: '{search_query}'")
+    logger.info(f"   Profile Keys: {list(profile.keys())}")
+    logger.info(f"   Skills: {[s.get('name', '') for s in profile.get('skills', [])][:3]}...")
+    
     if not search_query:
+        logger.error("❌ No search query provided")
         return {
             "jobs": [],
             "error": "No search query provided",
@@ -450,10 +489,23 @@ async def search_jobs_node(state: AgentState) -> Dict:
             "messages": []
         }
     
+    # Enhance search query with user profile context
+    enhanced_query = _enhance_job_search_query(search_query, profile)
+    location = profile.get("location", "")
+    
+    logger.info(f"🔧 Query Enhancement:")
+    logger.info(f"   Original: '{search_query}'")
+    logger.info(f"   Enhanced: '{enhanced_query}'")
+    logger.info(f"   Location: '{location}'")
+    
     # Search for jobs
-    jobs = await search_jobs_serpapi(search_query)
+    logger.info(f"📡 Calling search_jobs_serpapi()...")
+    jobs = await search_jobs_serpapi(enhanced_query, location)
+    
+    logger.info(f"📊 Search Results: {len(jobs)} jobs returned")
     
     if not jobs:
+        logger.warning("⚠️  No jobs found after search")
         # Fallback message
         return {
             "jobs": [],
@@ -462,20 +514,57 @@ async def search_jobs_node(state: AgentState) -> Dict:
             "messages": [{"role": "assistant", "content": "I couldn't find jobs matching your query. Try being more specific or using different keywords."}]
         }
     
-    # Calculate relevance scores
+    # Calculate relevance scores using full profile
+    logger.info(f"⭐ Calculating relevance scores for {len(jobs)} jobs...")
     skills = [s.get("name", "") for s in profile.get("skills", [])]
-    for job in jobs:
-        job["relevance_score"] = calculate_job_relevance(job, profile, skills)
+    for idx, job in enumerate(jobs):
+        score = calculate_job_relevance(job, profile, skills)
+        job["relevance_score"] = score
+        logger.debug(f"   [{idx+1}] {job.get('title', 'Unknown')[:50]}... → Score: {score:.1f}")
     
     # Sort by relevance
     jobs.sort(key=lambda x: x.get("relevance_score", 0), reverse=True)
+    logger.info(f"✅ Jobs sorted by relevance score")
+    
+    logger.info(f"🎯 Final Results: {len(jobs)} jobs")
+    logger.info("=" * 80)
     
     return {
         "jobs": jobs,
         "status": AgentStatus.COMPLETED.value,
         "status_message": f"Found {len(jobs)} matching jobs",
-        "messages": [{"role": "assistant", "content": f"I found {len(jobs)} jobs matching your search!"}]
+        "messages": [{"role": "assistant", "content": f"I found {len(jobs)} jobs matching your search! I've ranked them by relevance to your profile."}]
     }
+
+
+def _enhance_job_search_query(base_query: str, profile: Dict) -> str:
+    """Enhance job search query with user's skills and experience"""
+    enhancements = []
+    
+    # Add top skills from profile
+    skills = profile.get("skills", [])
+    if skills:
+        top_skills = [s.get("name", "") for s in skills[:3] if s.get("name")]
+        if top_skills:
+            enhancements.append(" ".join(top_skills))
+    
+    # Add tech stack from featured projects
+    projects = profile.get("projects", [])
+    featured_projects = [p for p in projects if p.get("featured")]
+    if featured_projects:
+        techs = []
+        for project in featured_projects[:2]:
+            if project.get("technologies"):
+                techs.extend(project["technologies"].split(",")[:2])
+        if techs:
+            enhancements.append(" ".join([t.strip() for t in techs]))
+    
+    # Build enhanced query
+    enhanced = base_query
+    if enhancements:
+        enhanced = f"{base_query} {' '.join(enhancements)}"
+    
+    return enhanced
 
 
 # ==================== Router Functions ====================
@@ -548,8 +637,9 @@ def create_resume_agent_graph():
     )
     graph.add_edge("save", END)
     
-    # Refinement flow
+    # Refinement flow - also needs to save after compile
     graph.add_edge("refine", "compile")
+    # Note: compile node will route to save via should_continue_after_compile
     
     # Job search flow
     graph.add_edge("retrieve_data_for_search", "search_jobs")
