@@ -32,7 +32,7 @@ export function Sidebar() {
             <path d="M8 5v14l11-7z" />
           </svg>
         </div>
-        <span className="text-lg font-bold">Resume.AI</span>
+        <span className="text-lg font-bold">Resum.AI</span>
       </div>
 
       {/* Navigation */}
