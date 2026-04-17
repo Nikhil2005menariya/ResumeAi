@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAuth0 } from '@auth0/auth0-react'
 import toast from 'react-hot-toast'
-import { Mail, Lock, User, ArrowRight, Loader2, CarFront } from 'lucide-react'
+import { Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react'
 import Lottie from 'lottie-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { authApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store'
 import authAnimation from '@/assets/animations/auth.json'
-import { Brand } from '@/components/Brand'
+import { BrandWordmark } from '@/components/Brand'
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -122,7 +122,7 @@ export function LoginPage() {
       <div className="mx-auto grid w-full max-w-6xl items-center gap-8 lg:grid-cols-2">
         <div className="hidden lg:block">
           <div className="glass-card rounded-3xl p-6">
-            <Brand size="sm" className="mb-4" />
+            <BrandWordmark size="sm" className="mb-4" />
             <Lottie animationData={authAnimation} loop className="h-[360px] w-full" />
             <p className="text-sm leading-relaxed text-slate-600">
               Secure sign-in, instant onboarding, and direct access to your resume workspace.
@@ -132,7 +132,7 @@ export function LoginPage() {
 
         <Card className="mx-auto w-full max-w-md shadow-[0_20px_45px_-30px_rgba(15,23,42,0.45)]">
           <CardHeader className="text-center">
-            <Brand size="sm" className="mx-auto mb-2 justify-center" />
+            <BrandWordmark size="sm" className="mx-auto mb-2 items-center" />
             <CardTitle className="text-2xl">
               {mode === 'login' && 'Welcome Back'}
               {mode === 'signup' && 'Create Account'}
@@ -185,11 +185,10 @@ export function LoginPage() {
                   </Link>
                 </div>
                 
-                <Button type="submit" className="btn-liquid btn-runway w-full" disabled={isLoading}>
+                <Button type="submit" className="dashboard-btn-dark h-11 w-full rounded-md font-semibold" disabled={isLoading}>
                   {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                   Sign In
                   <ArrowRight className="h-4 w-4 ml-2" />
-                  <CarFront aria-hidden="true" className="btn-runner h-4 w-4" />
                 </Button>
               </form>
             )}
@@ -237,11 +236,10 @@ export function LoginPage() {
                     <p className="text-xs text-destructive">{signupForm.formState.errors.password.message}</p>
                   )}
                 </div>
-                <Button type="submit" className="btn-liquid btn-runway w-full" disabled={isLoading}>
+                <Button type="submit" className="dashboard-btn-dark h-11 w-full rounded-md font-semibold" disabled={isLoading}>
                   {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                   Create Account
                   <ArrowRight className="h-4 w-4 ml-2" />
-                  <CarFront aria-hidden="true" className="btn-runner h-4 w-4" />
                 </Button>
               </form>
             )}
@@ -259,11 +257,11 @@ export function LoginPage() {
                     <p className="text-xs text-destructive text-center">{otpForm.formState.errors.code.message}</p>
                   )}
                 </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <Button type="submit" className="dashboard-btn-dark h-11 w-full rounded-md font-semibold" disabled={isLoading}>
                   {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                   Verify Email
                 </Button>
-                <Button type="button" variant="ghost" className="w-full" onClick={handleResendOTP}>
+                <Button type="button" className="dashboard-btn-light h-11 w-full rounded-md font-semibold" onClick={handleResendOTP}>
                   Resend Code
                 </Button>
               </form>
@@ -280,7 +278,7 @@ export function LoginPage() {
                   </div>
                 </div>
 
-                <Button variant="outline" className="w-full" onClick={handleGoogleLogin}>
+                <Button variant="outline" className="dashboard-btn-light h-11 w-full rounded-md font-semibold" onClick={handleGoogleLogin}>
                   <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24">
                     <path
                       fill="currentColor"

@@ -10,14 +10,23 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { NewtonLoader } from '@/components/ui/newton-loader'
 import { resumesApi } from '@/lib/api'
-import { useAgentStore } from '@/lib/store'
 
 interface Message {
   role: 'user' | 'assistant' | 'system'
   content: string
 }
 
-function PDFPreview({ resumeId, onRecompile }: { resumeId: string; onRecompile?: () => void }) {
+const GENERIC_ERROR_MESSAGE = 'An error occurred. Please try again.'
+
+function PDFPreview({
+  resumeId,
+  onRecompile,
+  autoRecompileTrigger = 0,
+}: {
+  resumeId: string
+  onRecompile?: () => void
+  autoRecompileTrigger?: number
+}) {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -31,27 +40,31 @@ function PDFPreview({ resumeId, onRecompile }: { resumeId: string; onRecompile?:
       const blob = new Blob([response.data], { type: 'application/pdf' })
       const url = URL.createObjectURL(blob)
       setPdfUrl(url)
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Failed to load PDF preview')
+    } catch {
+      setError(GENERIC_ERROR_MESSAGE)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleRecompile = async () => {
+  const runRecompile = async (showSuccessToast: boolean) => {
     try {
       setRecompiling(true)
       setError(null)
       await resumesApi.recompile(resumeId)
       await loadPDF()
       if (onRecompile) onRecompile()
-      toast.success('Preview recompiled')
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Failed to recompile PDF')
-      toast.error(err?.response?.data?.detail || 'Failed to recompile PDF')
+      if (showSuccessToast) toast.success('Preview recompiled')
+    } catch {
+      setError(GENERIC_ERROR_MESSAGE)
+      toast.error(GENERIC_ERROR_MESSAGE)
     } finally {
       setRecompiling(false)
     }
+  }
+
+  const handleRecompile = async () => {
+    await runRecompile(true)
   }
 
   useEffect(() => {
@@ -60,6 +73,11 @@ function PDFPreview({ resumeId, onRecompile }: { resumeId: string; onRecompile?:
       if (pdfUrl) URL.revokeObjectURL(pdfUrl)
     }
   }, [resumeId])
+
+  useEffect(() => {
+    if (autoRecompileTrigger <= 0) return
+    runRecompile(false)
+  }, [autoRecompileTrigger])
 
   return (
     <div className="preview-frame flex h-full flex-col">
@@ -110,7 +128,6 @@ export function CreateResumePage() {
   const [searchParams] = useSearchParams()
   const editResumeId = searchParams.get('edit')
 
-  const { setStatus, resetStatus } = useAgentStore()
   const [jobDescription, setJobDescription] = useState('')
   const [instructions, setInstructions] = useState('')
   const [messages, setMessages] = useState<Message[]>([])
@@ -118,6 +135,14 @@ export function CreateResumePage() {
   const [resumeId, setResumeId] = useState<string | null>(null)
   const [hasPdf, setHasPdf] = useState(false)
   const [isLoadingResume, setIsLoadingResume] = useState(false)
+  const [autoRecompileTrigger, setAutoRecompileTrigger] = useState(0)
+  const [pageStatus, setPageStatus] = useState<{
+    tone: 'idle' | 'working' | 'success' | 'error'
+    message: string
+  }>({
+    tone: 'idle',
+    message: 'Ready to generate a tailored resume.',
+  })
 
   useEffect(() => {
     if (editResumeId) loadExistingResume(editResumeId)
@@ -126,6 +151,10 @@ export function CreateResumePage() {
   const loadExistingResume = async (id: string) => {
     try {
       setIsLoadingResume(true)
+      setPageStatus({
+        tone: 'working',
+        message: 'Loading resume and preparing preview...',
+      })
       const response = await resumesApi.get(id)
       const resume = response.data
 
@@ -142,9 +171,13 @@ export function CreateResumePage() {
             `You can ask for edits below and recompile anytime.`,
         },
       ])
+      setPageStatus({
+        tone: 'success',
+        message: 'Resume loaded and ready for edits.',
+      })
       toast.success('Resume loaded for editing')
-    } catch (error: any) {
-      toast.error(error.response?.data?.detail || 'Resume not found. You can create a new one.')
+    } catch {
+      toast.error(GENERIC_ERROR_MESSAGE)
       navigate('/app/create-resume', { replace: true })
     } finally {
       setIsLoadingResume(false)
@@ -153,12 +186,21 @@ export function CreateResumePage() {
 
   const generateMutation = useMutation({
     mutationFn: (data: { job_description: string; instructions?: string }) => resumesApi.generate(data),
-    onMutate: () => setStatus({ status: 'planning', message: 'Starting resume generation...', progress: 10 }),
+    onMutate: () => {
+      setPageStatus({
+        tone: 'working',
+        message: 'Starting resume generation...',
+      })
+    },
     onSuccess: (response) => {
       const data = response.data
       setResumeId(data.resume_id)
       setHasPdf(data.has_pdf)
-      setStatus({ status: 'completed', message: 'Resume generated!', progress: 100 })
+      setAutoRecompileTrigger((prev) => prev + 1)
+      setPageStatus({
+        tone: 'success',
+        message: data.status_message || 'Resume generated successfully.',
+      })
       setMessages((prev) => [
         ...prev,
         {
@@ -169,19 +211,31 @@ export function CreateResumePage() {
       toast.success('Resume generated!')
       if (data.resume_id) fetchResumeDetails(data.resume_id)
     },
-    onError: (error: any) => {
-      setStatus({ status: 'error', message: 'Generation failed', progress: 0 })
-      toast.error(error.response?.data?.detail || 'Failed to generate resume')
+    onError: () => {
+      setPageStatus({
+        tone: 'error',
+        message: GENERIC_ERROR_MESSAGE,
+      })
+      toast.error(GENERIC_ERROR_MESSAGE)
     },
   })
 
   const refineMutation = useMutation({
     mutationFn: (message: string) => resumesApi.refine(resumeId!, { message }),
-    onMutate: () => setStatus({ status: 'refining', message: 'Applying changes...', progress: 50 }),
+    onMutate: () => {
+      setPageStatus({
+        tone: 'working',
+        message: 'Applying your requested changes...',
+      })
+    },
     onSuccess: (response) => {
       const data = response.data
       setHasPdf(data.has_pdf)
-      setStatus({ status: 'completed', message: 'Changes applied!', progress: 100 })
+      setAutoRecompileTrigger((prev) => prev + 1)
+      setPageStatus({
+        tone: 'success',
+        message: data.status_message || 'Changes applied successfully.',
+      })
       setMessages((prev) => [
         ...prev,
         { role: 'assistant', content: 'Changes applied. Preview and exports are updated.' },
@@ -189,9 +243,12 @@ export function CreateResumePage() {
       toast.success('Resume updated!')
       if (resumeId) fetchResumeDetails(resumeId)
     },
-    onError: (error: any) => {
-      setStatus({ status: 'error', message: 'Refinement failed', progress: 0 })
-      toast.error(error.response?.data?.detail || 'Failed to refine resume')
+    onError: () => {
+      setPageStatus({
+        tone: 'error',
+        message: GENERIC_ERROR_MESSAGE,
+      })
+      toast.error(GENERIC_ERROR_MESSAGE)
       setMessages((prev) => [...prev, { role: 'assistant', content: 'Could not apply those changes. Please rephrase and retry.' }])
     },
   })
@@ -277,23 +334,15 @@ export function CreateResumePage() {
     setMessages([])
     setResumeId(null)
     setHasPdf(false)
-    resetStatus()
+    setPageStatus({
+      tone: 'idle',
+      message: 'Ready to generate a tailored resume.',
+    })
   }
 
   const isGenerating = generateMutation.isPending || refineMutation.isPending
+  const isBusy = isLoadingResume || isGenerating
   const isEditMode = !!editResumeId
-
-  if (isLoadingResume) {
-    return (
-      <div className="h-[calc(100vh-8rem)] flex items-center justify-center">
-        <div className="preview-state">
-          <NewtonLoader size="lg" />
-          <p className="preview-state-title">Loading Resume</p>
-          <p className="preview-state-subtitle">Preparing editable session and preview.</p>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <motion.div
@@ -315,6 +364,9 @@ export function CreateResumePage() {
         </CardHeader>
 
         <CardContent className="flex flex-1 flex-col gap-4 overflow-hidden">
+          <div className={`builder-status-banner builder-status-banner--${pageStatus.tone}`}>
+            <span>{pageStatus.message}</span>
+          </div>
           {!resumeId && !isEditMode ? (
             <>
               <div className="space-y-2">
@@ -348,14 +400,7 @@ export function CreateResumePage() {
                     className="builder-generate-btn"
                   >
                     <span className="builder-generate-label">
-                      {isGenerating ? (
-                        <>
-                          <NewtonLoader size="sm" />
-                          Generating Resume
-                        </>
-                      ) : (
-                        'Generate Resume'
-                      )}
+                      {isGenerating ? 'Generating Resume...' : 'Generate Resume'}
                     </span>
                   </button>
                   <div className="builder-generate-shadow" />
@@ -387,10 +432,7 @@ export function CreateResumePage() {
 
                   {isGenerating ? (
                     <div className="builder-message assistant">
-                      <div className="flex items-center gap-2">
-                        <NewtonLoader size="sm" />
-                        <span>Applying changes...</span>
-                      </div>
+                      <span>Applying changes...</span>
                     </div>
                   ) : null}
                 </div>
@@ -460,7 +502,7 @@ export function CreateResumePage() {
         </CardHeader>
         <CardContent className="flex flex-1 flex-col overflow-hidden">
           {resumeId ? (
-            <PDFPreview resumeId={resumeId} />
+            <PDFPreview resumeId={resumeId} autoRecompileTrigger={autoRecompileTrigger} />
           ) : (
             <div className="preview-state h-full">
               <FileText className="h-14 w-14 text-slate-200" />
@@ -470,6 +512,16 @@ export function CreateResumePage() {
           )}
         </CardContent>
       </Card>
+
+      {isBusy ? (
+        <div className="builder-blocking-overlay" role="status" aria-live="polite" aria-busy="true">
+          <div className="builder-blocking-overlay__card">
+            <NewtonLoader size="lg" />
+            <p className="builder-blocking-overlay__title">{isLoadingResume ? 'Loading Resume' : 'Please wait'}</p>
+            <p className="builder-blocking-overlay__text">{pageStatus.message}</p>
+          </div>
+        </div>
+      ) : null}
     </motion.div>
   )
 }

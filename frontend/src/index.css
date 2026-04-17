@@ -260,6 +260,39 @@
   color: #1e5a30;
 }
 
+.profile-tabs-wrap {
+  background: #ffffff;
+  box-shadow:
+    rgba(0, 0, 0, 0.08) 0px 0px 0px 1px,
+    rgba(0, 0, 0, 0.04) 0px 2px 2px,
+    #fafafa 0px 0px 0px 1px;
+}
+
+.profile-tab-btn {
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 500;
+  transition: background-color .2s ease, color .2s ease, box-shadow .2s ease;
+}
+
+.profile-tab-btn--active {
+  background: #0f172a;
+  color: #ffffff;
+  box-shadow:
+    rgba(15, 23, 42, 0.08) 0px 0px 0px 1px,
+    rgba(15, 23, 42, 0.22) 0px 10px 18px -14px;
+}
+
+.profile-tab-btn--idle {
+  color: #334155;
+  background: transparent;
+}
+
+.profile-tab-btn--idle:hover {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
 .resume-builder-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -277,6 +310,75 @@
 
 .builder-header {
   border-bottom: 1px solid #ebebeb;
+}
+
+.builder-status-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 9999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  width: fit-content;
+}
+
+.builder-status-banner--idle {
+  background: #f8fafc;
+  color: #475569;
+}
+
+.builder-status-banner--working {
+  background: #eef2ff;
+  color: #1d4ed8;
+}
+
+.builder-status-banner--success {
+  background: #ecfdf3;
+  color: #047857;
+}
+
+.builder-status-banner--error {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.builder-blocking-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(4px);
+}
+
+.builder-blocking-overlay__card {
+  min-width: min(90vw, 380px);
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow:
+    rgba(0, 0, 0, 0.08) 0px 0px 0px 1px,
+    rgba(0, 0, 0, 0.12) 0px 24px 50px -30px;
+  padding: 24px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.builder-blocking-overlay__title {
+  color: #171717;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.builder-blocking-overlay__text {
+  color: #475569;
+  font-size: 13px;
 }
 
 .builder-textarea {
@@ -663,6 +765,273 @@
   color: #64748b;
 }
 
+.jobs-hero-card {
+  border: 0 !important;
+  background: #ffffff;
+  box-shadow:
+    rgba(0, 0, 0, 0.08) 0px 0px 0px 1px,
+    rgba(0, 0, 0, 0.04) 0px 2px 2px,
+    #fafafa 0px 0px 0px 1px;
+}
+
+.jobs-kicker {
+  border-radius: 9999px;
+  background: #ebf5ff;
+  color: #0068d6;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+}
+
+.jobs-search-bar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.jobs-feedback {
+  margin-top: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 9999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.jobs-feedback--idle {
+  background: #f8fafc;
+  color: #475569;
+}
+
+.jobs-feedback--searching {
+  background: #eef2ff;
+  color: #1d4ed8;
+}
+
+.jobs-feedback--completed {
+  background: #ecfdf3;
+  color: #047857;
+}
+
+.jobs-feedback--error {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.jobs-loader-card {
+  border: 1px solid #ebebeb;
+  background: #fbfcff;
+}
+
+.jobs-loader-text {
+  margin-top: 22px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: .01em;
+  color: #0f172a;
+}
+
+.job-loader-wrap {
+  position: relative;
+  height: 130px;
+  overflow: hidden;
+}
+
+.job-loader {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin-left: -50px;
+  animation: job-speeder 0.4s linear infinite;
+}
+
+.job-loader > span {
+  height: 5px;
+  width: 35px;
+  background: #000;
+  position: absolute;
+  top: -19px;
+  left: 60px;
+  border-radius: 2px 10px 1px 0;
+}
+
+.job-base span {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-top: 6px solid transparent;
+  border-right: 100px solid #000;
+  border-bottom: 6px solid transparent;
+}
+
+.job-base span:before {
+  content: "";
+  height: 22px;
+  width: 22px;
+  border-radius: 50%;
+  background: #000;
+  position: absolute;
+  right: -110px;
+  top: -16px;
+}
+
+.job-base span:after {
+  content: "";
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-top: 0 solid transparent;
+  border-right: 55px solid #000;
+  border-bottom: 16px solid transparent;
+  top: -16px;
+  right: -98px;
+}
+
+.job-face {
+  position: absolute;
+  height: 12px;
+  width: 20px;
+  background: #000;
+  border-radius: 20px 20px 0 0;
+  transform: rotate(-40deg);
+  right: -125px;
+  top: -15px;
+}
+
+.job-face:after {
+  content: "";
+  height: 12px;
+  width: 12px;
+  background: #000;
+  right: 4px;
+  top: 7px;
+  position: absolute;
+  transform: rotate(40deg);
+  transform-origin: 50% 50%;
+  border-radius: 0 0 0 2px;
+}
+
+.job-loader > span > span:nth-child(1),
+.job-loader > span > span:nth-child(2),
+.job-loader > span > span:nth-child(3),
+.job-loader > span > span:nth-child(4) {
+  width: 30px;
+  height: 1px;
+  background: #000;
+  position: absolute;
+  animation: job-fazer1 0.2s linear infinite;
+}
+
+.job-loader > span > span:nth-child(2) {
+  top: 3px;
+  animation: job-fazer2 0.4s linear infinite;
+}
+
+.job-loader > span > span:nth-child(3) {
+  top: 1px;
+  animation: job-fazer3 0.4s linear infinite;
+  animation-delay: -1s;
+}
+
+.job-loader > span > span:nth-child(4) {
+  top: 4px;
+  animation: job-fazer4 1s linear infinite;
+  animation-delay: -1s;
+}
+
+.job-longfazers {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+}
+
+.job-longfazers span {
+  position: absolute;
+  height: 2px;
+  width: 20%;
+  background: #000;
+}
+
+.job-longfazers span:nth-child(1) {
+  top: 20%;
+  animation: job-lf 0.6s linear infinite;
+  animation-delay: -5s;
+}
+
+.job-longfazers span:nth-child(2) {
+  top: 40%;
+  animation: job-lf2 0.8s linear infinite;
+  animation-delay: -1s;
+}
+
+.job-longfazers span:nth-child(3) {
+  top: 60%;
+  animation: job-lf3 0.6s linear infinite;
+}
+
+.job-longfazers span:nth-child(4) {
+  top: 80%;
+  animation: job-lf4 0.5s linear infinite;
+  animation-delay: -3s;
+}
+
+@keyframes job-fazer1 {
+  0% { left: 0; }
+  100% { left: -80px; opacity: 0; }
+}
+
+@keyframes job-fazer2 {
+  0% { left: 0; }
+  100% { left: -100px; opacity: 0; }
+}
+
+@keyframes job-fazer3 {
+  0% { left: 0; }
+  100% { left: -50px; opacity: 0; }
+}
+
+@keyframes job-fazer4 {
+  0% { left: 0; }
+  100% { left: -150px; opacity: 0; }
+}
+
+@keyframes job-speeder {
+  0% { transform: translate(2px, 1px) rotate(0deg); }
+  10% { transform: translate(-1px, -3px) rotate(-1deg); }
+  20% { transform: translate(-2px, 0px) rotate(1deg); }
+  30% { transform: translate(1px, 2px) rotate(0deg); }
+  40% { transform: translate(1px, -1px) rotate(1deg); }
+  50% { transform: translate(-1px, 3px) rotate(-1deg); }
+  60% { transform: translate(-1px, 1px) rotate(0deg); }
+  70% { transform: translate(3px, 1px) rotate(-1deg); }
+  80% { transform: translate(-2px, -1px) rotate(1deg); }
+  90% { transform: translate(2px, 1px) rotate(0deg); }
+  100% { transform: translate(1px, -2px) rotate(-1deg); }
+}
+
+@keyframes job-lf {
+  0% { left: 200%; }
+  100% { left: -200%; opacity: 0; }
+}
+
+@keyframes job-lf2 {
+  0% { left: 200%; }
+  100% { left: -200%; opacity: 0; }
+}
+
+@keyframes job-lf3 {
+  0% { left: 200%; }
+  100% { left: -100%; opacity: 0; }
+}
+
+@keyframes job-lf4 {
+  0% { left: 200%; }
+  100% { left: -100%; opacity: 0; }
+}
+
 .newtons-cradle {
   --uib-size: 42px;
   --uib-speed: 1.2s;
@@ -730,7 +1099,16 @@
   .dashboard-btn-dark,
   .dashboard-btn-light,
   .newtons-cradle__dot:first-child,
-  .newtons-cradle__dot:last-child {
+  .newtons-cradle__dot:last-child,
+  .job-loader,
+  .job-loader > span > span:nth-child(1),
+  .job-loader > span > span:nth-child(2),
+  .job-loader > span > span:nth-child(3),
+  .job-loader > span > span:nth-child(4),
+  .job-longfazers span:nth-child(1),
+  .job-longfazers span:nth-child(2),
+  .job-longfazers span:nth-child(3),
+  .job-longfazers span:nth-child(4) {
     animation: none !important;
     transition: none !important;
   }

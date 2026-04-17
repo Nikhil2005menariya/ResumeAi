@@ -1,6 +1,5 @@
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
-import { AgentStatus } from './AgentStatus'
 import { Brand } from '@/components/Brand'
 
 export function DashboardLayout() {
@@ -16,7 +15,6 @@ export function DashboardLayout() {
           <div className="hidden lg:block">
             <p className="dashboard-kicker">Workspace</p>
           </div>
-          <AgentStatus />
         </header>
 
         <main className="mt-4 flex-1 overflow-auto rounded-2xl">

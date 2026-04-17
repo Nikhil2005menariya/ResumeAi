@@ -58,7 +58,7 @@ export function ProfilePage() {
         </p>
       </div>
 
-      <div className="glass-card flex gap-2 rounded-2xl p-2">
+      <div className="profile-tabs-wrap flex gap-2 rounded-2xl p-2">
         {[
           { id: 'info', label: 'Basic Info', icon: User },
           { id: 'education', label: 'Education', icon: GraduationCap },
@@ -70,8 +70,8 @@ export function ProfilePage() {
             onClick={() => setActiveTab(tab.id as any)}
             className={`flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors ${
               activeTab === tab.id
-                ? 'bg-primary text-primary-foreground'
-                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                ? 'profile-tab-btn profile-tab-btn--active'
+                : 'profile-tab-btn profile-tab-btn--idle'
             }`}
           >
             <tab.icon className="h-4 w-4" />
@@ -164,7 +164,7 @@ function BasicInfoTab({ profile, onUpdate, isUpdating }: { profile: any; onUpdat
               <Input {...register('portfolio_url')} placeholder="https://yourportfolio.com" />
             </div>
           </div>
-          <Button type="submit" disabled={isUpdating} className="gap-2">
+          <Button type="submit" disabled={isUpdating} className="dashboard-btn-dark h-10 gap-2 rounded-md px-4">
             {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Save Changes
           </Button>

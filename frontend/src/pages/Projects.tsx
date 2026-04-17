@@ -84,7 +84,11 @@ export function ProjectsPage() {
             Showcase your work for AI-powered resume generation
           </p>
         </div>
-        <Button onClick={() => setIsAdding(true)} disabled={isAdding} className="gap-2">
+        <Button
+          onClick={() => setIsAdding(true)}
+          disabled={isAdding}
+          className="dashboard-btn-dark h-10 gap-2 rounded-md px-4"
+        >
           <Plus className="h-4 w-4" />
           Add Project
         </Button>
@@ -129,7 +133,10 @@ export function ProjectsPage() {
             <p className="text-muted-foreground text-sm mt-1">
               Add your projects to include them in AI-generated resumes
             </p>
-            <Button onClick={() => setIsAdding(true)} className="mt-4 gap-2">
+            <Button
+              onClick={() => setIsAdding(true)}
+              className="dashboard-btn-dark mt-4 h-10 gap-2 rounded-md px-4"
+            >
               <Plus className="h-4 w-4" />
               Add Your First Project
             </Button>

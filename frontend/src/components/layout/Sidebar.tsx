@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
   Briefcase,
@@ -23,6 +23,7 @@ const navigation = [
 
 export function Sidebar() {
   const location = useLocation()
+  const navigate = useNavigate()
   const { logout, user } = useAuthStore()
   const initials = user?.full_name
     ? user.full_name
@@ -58,7 +59,7 @@ export function Sidebar() {
             transition={{ duration: 0.5, delay: 0.08 }}
             className="mt-1 text-[1.6rem] font-semibold leading-tight tracking-[-0.03em] text-[#111827]"
           >
-            Resume.Ai
+            Resum.Ai
           </motion.h2>
           <motion.div
             initial={{ width: 0 }}
@@ -118,7 +119,10 @@ export function Sidebar() {
               <p className="truncate text-xs text-[#64748b]">{user?.email || 'Resume workspace'}</p>
             </div>
             <button
-              onClick={logout}
+              onClick={() => {
+                logout()
+                navigate('/')
+              }}
               className="rounded-lg p-2 text-[#64748b] transition-colors hover:bg-[#f1f5f9] hover:text-[#0f172a]"
               title="Logout"
             >

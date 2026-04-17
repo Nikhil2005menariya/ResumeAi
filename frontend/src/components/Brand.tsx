@@ -6,6 +6,11 @@ interface BrandProps {
   className?: string
 }
 
+interface BrandWordmarkProps {
+  size?: 'sm' | 'md' | 'lg'
+  className?: string
+}
+
 const sizeMap = {
   sm: {
     wrap: 'gap-2',
@@ -61,6 +66,32 @@ export function Brand({ size = 'md', showText = true, className }: BrandProps) {
           <span className="text-[#4F7DFF]">.Ai</span>
         </h1>
       ) : null}
+    </div>
+  )
+}
+
+const wordmarkSizeMap = {
+  sm: {
+    text: 'text-[1.6rem]',
+    line: 'w-[72px]',
+  },
+  md: {
+    text: 'text-[1.8rem]',
+    line: 'w-[84px]',
+  },
+  lg: {
+    text: 'text-[2rem]',
+    line: 'w-[96px]',
+  },
+}
+
+export function BrandWordmark({ size = 'sm', className }: BrandWordmarkProps) {
+  const styles = wordmarkSizeMap[size]
+
+  return (
+    <div className={cn('inline-flex flex-col', className)}>
+      <h1 className={cn('font-semibold leading-tight tracking-[-0.03em] text-[#111827]', styles.text)}>Resum.Ai</h1>
+      <div className={cn('mt-2 h-[2px] rounded-full bg-gradient-to-r from-[#0a72ef] via-[#8b5cf6] to-[#de1d8d]', styles.line)} />
     </div>
   )
 }
