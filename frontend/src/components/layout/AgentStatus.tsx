@@ -3,16 +3,16 @@ import { cn } from '@/lib/utils'
 import { Loader2, CheckCircle, XCircle, Brain } from 'lucide-react'
 
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
-  idle: { label: 'Ready', color: 'bg-gray-100 text-gray-600', icon: Brain },
-  planning: { label: 'Planning', color: 'bg-blue-100 text-blue-600', icon: Loader2 },
-  retrieving_data: { label: 'Retrieving Data', color: 'bg-blue-100 text-blue-600', icon: Loader2 },
-  analyzing: { label: 'Analyzing', color: 'bg-purple-100 text-purple-600', icon: Loader2 },
-  generating: { label: 'Generating', color: 'bg-indigo-100 text-indigo-600', icon: Loader2 },
-  compiling: { label: 'Compiling PDF', color: 'bg-orange-100 text-orange-600', icon: Loader2 },
-  searching: { label: 'Searching Jobs', color: 'bg-cyan-100 text-cyan-600', icon: Loader2 },
-  refining: { label: 'Refining', color: 'bg-violet-100 text-violet-600', icon: Loader2 },
-  completed: { label: 'Completed', color: 'bg-green-100 text-green-600', icon: CheckCircle },
-  error: { label: 'Error', color: 'bg-red-100 text-red-600', icon: XCircle },
+  idle: { label: 'Ready', color: 'bg-slate-100 text-slate-600 border border-slate-200', icon: Brain },
+  planning: { label: 'Planning', color: 'bg-blue-50 text-blue-700 border border-blue-200', icon: Loader2 },
+  retrieving_data: { label: 'Retrieving', color: 'bg-blue-50 text-blue-700 border border-blue-200', icon: Loader2 },
+  analyzing: { label: 'Analyzing', color: 'bg-violet-50 text-violet-700 border border-violet-200', icon: Loader2 },
+  generating: { label: 'Generating', color: 'bg-indigo-50 text-indigo-700 border border-indigo-200', icon: Loader2 },
+  compiling: { label: 'Compiling', color: 'bg-orange-50 text-orange-700 border border-orange-200', icon: Loader2 },
+  searching: { label: 'Searching', color: 'bg-cyan-50 text-cyan-700 border border-cyan-200', icon: Loader2 },
+  refining: { label: 'Refining', color: 'bg-violet-50 text-violet-700 border border-violet-200', icon: Loader2 },
+  completed: { label: 'Completed', color: 'bg-emerald-50 text-emerald-700 border border-emerald-200', icon: CheckCircle },
+  error: { label: 'Error', color: 'bg-red-50 text-red-700 border border-red-200', icon: XCircle },
 }
 
 export function AgentStatus() {

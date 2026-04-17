@@ -1,12 +1,12 @@
 import { useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { type RootState, useFrame } from '@react-three/fiber';
 import { Float } from '@react-three/drei';
 import * as THREE from 'three';
 
 export function FloatingResume() {
   const meshRef = useRef<THREE.Mesh>(null);
   
-  useFrame((state) => {
+  useFrame((state: RootState) => {
     if (meshRef.current) {
       meshRef.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.3) * 0.2;
       meshRef.current.position.y = Math.sin(state.clock.elapsedTime * 0.5) * 0.1;
@@ -49,7 +49,7 @@ export function FloatingResume() {
 export function AIBrain() {
   const groupRef = useRef<THREE.Group>(null);
   
-  useFrame((state) => {
+  useFrame((state: RootState) => {
     if (groupRef.current) {
       groupRef.current.rotation.y = state.clock.elapsedTime * 0.5;
     }
@@ -92,7 +92,7 @@ export function AIBrain() {
 export function ParticleField() {
   const particlesRef = useRef<THREE.Points>(null);
   
-  useFrame((state) => {
+  useFrame((state: RootState) => {
     if (particlesRef.current) {
       particlesRef.current.rotation.y = state.clock.elapsedTime * 0.05;
     }

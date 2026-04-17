@@ -30,14 +30,13 @@ export function DashboardPage() {
   const profileCompletion = calculateProfileCompletion(profile)
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      {/* Welcome Section */}
+    <div className="page-wrap space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">
+          <h1 className="text-3xl font-extrabold text-slate-900">
             Welcome back, {user?.full_name?.split(' ')[0] || 'there'}!
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="mt-1 text-slate-600">
             Ready to create your next amazing resume?
           </p>
         </div>
@@ -49,9 +48,8 @@ export function DashboardPage() {
         </Link>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
+        <Card className="glass-card">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total Resumes</CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
@@ -61,7 +59,7 @@ export function DashboardPage() {
             <p className="text-xs text-muted-foreground">Created with AI</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="glass-card">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Projects</CardTitle>
             <FolderKanban className="h-4 w-4 text-muted-foreground" />
@@ -71,7 +69,7 @@ export function DashboardPage() {
             <p className="text-xs text-muted-foreground">Ready to showcase</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="glass-card">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Profile</CardTitle>
             <div className={`h-4 w-4 rounded-full ${profileCompletion >= 80 ? 'bg-green-500' : profileCompletion >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`} />
@@ -83,10 +81,9 @@ export function DashboardPage() {
         </Card>
       </div>
 
-      {/* Quick Actions */}
       <div className="grid gap-4 md:grid-cols-3">
         <Link to="/app/create-resume" className="block">
-          <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer border-2 border-dashed hover:border-primary">
+          <Card className="glass-card h-full cursor-pointer border-2 border-dashed border-blue-200 transition-all hover:border-primary">
             <CardContent className="flex flex-col items-center justify-center py-8 text-center">
               <div className="rounded-full bg-primary/10 p-4 mb-4">
                 <Sparkles className="h-8 w-8 text-primary" />
@@ -97,7 +94,7 @@ export function DashboardPage() {
           </Card>
         </Link>
         <Link to="/app/jobs" className="block">
-          <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
+          <Card className="glass-card h-full cursor-pointer transition-all">
             <CardContent className="flex flex-col items-center justify-center py-8 text-center">
               <div className="rounded-full bg-blue-100 p-4 mb-4">
                 <Search className="h-8 w-8 text-blue-600" />
@@ -108,7 +105,7 @@ export function DashboardPage() {
           </Card>
         </Link>
         <Link to="/app/projects" className="block">
-          <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
+          <Card className="glass-card h-full cursor-pointer transition-all">
             <CardContent className="flex flex-col items-center justify-center py-8 text-center">
               <div className="rounded-full bg-purple-100 p-4 mb-4">
                 <Plus className="h-8 w-8 text-purple-600" />
@@ -120,10 +117,8 @@ export function DashboardPage() {
         </Link>
       </div>
 
-      {/* Recent Items */}
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Recent Resumes */}
-        <Card>
+        <Card className="glass-card">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle>Recent Resumes</CardTitle>
@@ -142,7 +137,7 @@ export function DashboardPage() {
                   <Link
                     key={resume.id}
                     to={`/app/resumes/${resume.id}`}
-                    className="flex items-center gap-4 p-3 rounded-lg hover:bg-accent transition-colors"
+                    className="flex items-center gap-4 rounded-xl p-3 transition-colors hover:bg-slate-100"
                   >
                     <div className="rounded-lg bg-primary/10 p-2">
                       <FileText className="h-5 w-5 text-primary" />
@@ -173,8 +168,7 @@ export function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Recent Projects */}
-        <Card>
+        <Card className="glass-card">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle>Your Projects</CardTitle>
@@ -192,7 +186,7 @@ export function DashboardPage() {
                 {recentProjects.map((project: any) => (
                   <div
                     key={project.id}
-                    className="flex items-center gap-4 p-3 rounded-lg hover:bg-accent transition-colors"
+                    className="flex items-center gap-4 rounded-xl p-3 transition-colors hover:bg-slate-100"
                   >
                     <div className="rounded-lg bg-purple-100 p-2">
                       <FolderKanban className="h-5 w-5 text-purple-600" />

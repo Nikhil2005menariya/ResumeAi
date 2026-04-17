@@ -94,9 +94,9 @@ function PDFPreview({ resumeId, onRecompile }: { resumeId: string; onRecompile?:
   if (error) {
     return (
       <div className="w-full flex-1 border border-gray-200 rounded flex items-center justify-center bg-red-50">
-        <div className="text-center p-4">
-          <FileText className="h-8 w-8 mx-auto mb-2 text-red-500" />
-          <p className="text-sm text-red-600 mb-3">{error}</p>
+          <div className="text-center p-4">
+            <FileText className="h-8 w-8 mx-auto mb-2 text-red-500" />
+            <p className="text-sm text-red-600 mb-3">{error}</p>
           <Button onClick={handleRecompile} size="sm" variant="outline">
             <RefreshCw className="h-4 w-4 mr-2" />
             Retry Compilation
@@ -146,7 +146,6 @@ export function CreateResumePage() {
   const [chatInput, setChatInput] = useState('')
   const [resumeId, setResumeId] = useState<string | null>(null)
   const [hasPdf, setHasPdf] = useState(false)
-  const [latexCode, setLatexCode] = useState<string | null>(null)
   const [isLoadingResume, setIsLoadingResume] = useState(false)
 
   // Load existing resume when in edit mode
@@ -174,17 +173,12 @@ export function CreateResumePage() {
         setJobDescription(resume.job_description)
       }
       
-      // Set LaTeX code
-      if (resume.latex_code) {
-        setLatexCode(resume.latex_code)
-      }
-      
       setHasPdf(resume.has_pdf || true) // Assume PDF exists for edit mode
       
       // Add welcome message for edit mode
       setMessages([{
         role: 'assistant',
-        content: `📄 Loaded resume: **${resume.title}**\n\nThe PDF preview is loading on the right. You can:\n- View and download the PDF\n- Make changes using the chat below\n- Update the job description and regenerate`
+        content: `Loaded resume: **${resume.title}**\n\nThe PDF preview is loading on the right. You can:\n- View and download the PDF\n- Make changes using the chat below\n- Update the job description and regenerate`
       }])
       
       toast.success('Resume loaded for editing')
@@ -192,7 +186,7 @@ export function CreateResumePage() {
       console.error('Failed to load resume:', error)
       toast.error(error.response?.data?.detail || 'Resume not found. You can create a new one.')
       // Clear edit mode params - allow creating new resume
-      navigate('/create-resume', { replace: true })
+      navigate('/app/create-resume', { replace: true })
     } finally {
       setIsLoadingResume(false)
     }
@@ -211,7 +205,7 @@ export function CreateResumePage() {
       setStatus({ status: 'completed', message: 'Resume generated!', progress: 100 })
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: `✅ Resume generated successfully! ${data.has_pdf ? 'PDF is ready for download.' : 'LaTeX code is available.'}\n\nWould you like to make any changes?`
+        content: `Resume generated successfully. ${data.has_pdf ? 'PDF is ready for download.' : 'LaTeX code is available.'}\n\nWould you like to make any changes?`
       }])
       toast.success('Resume generated!')
       
@@ -238,7 +232,7 @@ export function CreateResumePage() {
       setStatus({ status: 'completed', message: 'Changes applied!', progress: 100 })
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: '✅ Changes applied! The resume has been updated. Would you like to make any other changes?'
+        content: 'Changes applied. The resume has been updated. Would you like to make any other changes?'
       }])
       toast.success('Resume updated!')
       
@@ -251,7 +245,7 @@ export function CreateResumePage() {
       toast.error(error.response?.data?.detail || 'Failed to refine resume')
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: '❌ Sorry, I couldn\'t apply those changes. Please try rephrasing your request.'
+        content: 'I could not apply those changes. Please try rephrasing your request.'
       }])
     },
   })
@@ -259,7 +253,6 @@ export function CreateResumePage() {
   const fetchResumeDetails = async (id: string) => {
     try {
       const response = await resumesApi.get(id)
-      setLatexCode(response.data.latex_code)
       setHasPdf(response.data.has_pdf || false)
       // Set the resume ID so the preview component works
       setResumeId(id)
@@ -343,7 +336,6 @@ export function CreateResumePage() {
     setMessages([])
     setResumeId(null)
     setHasPdf(false)
-    setLatexCode(null)
     resetStatus()
   }
 
@@ -502,9 +494,9 @@ export function CreateResumePage() {
               </div>
             ) : (
               <div className="h-full flex items-center justify-center text-muted-foreground">
-                <div className="text-center">
-                  <FileText className="h-16 w-16 mx-auto mb-4 opacity-20" />
-                  <p>Your resume preview will appear here</p>
+                  <div className="text-center">
+                    <FileText className="h-16 w-16 mx-auto mb-4 opacity-20" />
+                    <p>Your resume preview will appear here</p>
                   <p className="text-sm mt-1">Enter a job description and generate</p>
                 </div>
               </div>

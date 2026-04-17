@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth0 } from '@auth0/auth0-react'
 import toast from 'react-hot-toast'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Sparkles } from 'lucide-react'
 import { authApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store'
 
@@ -39,7 +39,7 @@ export function CallbackPage() {
           setAuth(response.data.user, response.data.access_token)
           
           toast.success(`Welcome, ${user.name || user.email}!`)
-          navigate('/dashboard')
+          navigate('/app/dashboard')
         } catch (error: any) {
           console.error('Backend verification error:', error)
           console.error('Error response:', error.response?.data)
@@ -53,13 +53,16 @@ export function CallbackPage() {
   }, [isAuthenticated, isLoading, error, user, navigate, getAccessTokenSilently, setAuth])
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <div className="text-center space-y-4">
-        <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
-        <h2 className="text-xl font-semibold text-gray-900">
+    <div className="min-h-screen flex items-center justify-center px-4">
+      <div className="glass-card w-full max-w-md rounded-3xl p-10 text-center space-y-4">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 via-indigo-500 to-orange-500 shadow-lg shadow-blue-200">
+          <Sparkles className="h-6 w-6 text-white" />
+        </div>
+        <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+        <h2 className="text-xl font-semibold text-slate-900">
           Completing authentication...
         </h2>
-        <p className="text-gray-600">
+        <p className="text-slate-600">
           Please wait while we sign you in
         </p>
       </div>

@@ -74,17 +74,15 @@ export function JobsPage() {
   const searchResults = searchMutation.data?.data?.jobs || []
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
+    <div className="page-wrap space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Search Jobs</h1>
-        <p className="text-muted-foreground mt-1">
+        <h1 className="text-3xl font-extrabold text-slate-900">Search Jobs</h1>
+        <p className="mt-1 text-slate-600">
           Find jobs matching your skills and generate tailored resumes
         </p>
       </div>
 
-      {/* Search Form */}
-      <Card>
+      <Card className="glass-card">
         <CardContent className="pt-6">
           <form onSubmit={handleSearch} className="flex gap-4">
             <div className="flex-1 relative">
@@ -109,7 +107,6 @@ export function JobsPage() {
         </CardContent>
       </Card>
 
-      {/* Search Results */}
       {searchResults.length > 0 && (
         <div className="space-y-4">
           <h2 className="text-xl font-semibold">Search Results ({searchResults.length})</h2>
@@ -126,7 +123,6 @@ export function JobsPage() {
         </div>
       )}
 
-      {/* Saved Jobs */}
       <div className="space-y-4">
         <h2 className="text-xl font-semibold">Recent Searches</h2>
         {isLoadingSaved ? (
@@ -147,7 +143,7 @@ export function JobsPage() {
             ))}
           </div>
         ) : (
-          <Card>
+          <Card className="glass-card">
             <CardContent className="flex flex-col items-center justify-center py-12 text-center">
               <Search className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
               <p className="text-muted-foreground">No saved jobs yet</p>
@@ -172,7 +168,7 @@ interface JobCardProps {
 
 function JobCard({ job, onGenerateResume, isGenerating, hasResume, savedAt }: JobCardProps) {
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card className="glass-card transition-all">
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
@@ -204,7 +200,7 @@ function JobCard({ job, onGenerateResume, isGenerating, hasResume, savedAt }: Jo
           {(job.posted_date || savedAt) && (
             <span className="flex items-center gap-1 bg-muted px-2 py-1 rounded">
               <Clock className="h-3 w-3" />
-              {job.posted_date || formatRelativeTime(savedAt)}
+              {job.posted_date || (savedAt ? formatRelativeTime(savedAt) : '')}
             </span>
           )}
         </div>

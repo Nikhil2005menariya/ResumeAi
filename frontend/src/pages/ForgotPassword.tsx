@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Mail, Lock, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Mail, Lock, ArrowLeft, CheckCircle2, AlertCircle, Sparkles, CarFront } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -136,32 +136,32 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md"
       >
-        {/* Back Button */}
         <Link
           to="/login"
-          className="inline-flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors"
+          className="mb-6 inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to Login
         </Link>
 
-        {/* Card */}
-        <div className="bg-slate-900/50 backdrop-blur-xl border border-purple-500/20 rounded-2xl p-8 shadow-2xl">
-          {/* Header */}
+        <div className="glass-card rounded-3xl p-8 shadow-[0_22px_50px_-30px_rgba(15,23,42,0.4)]">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-violet-400 to-purple-400 bg-clip-text text-transparent mb-2">
+            <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 via-indigo-500 to-orange-500 shadow-lg shadow-blue-200">
+              <Sparkles className="h-5 w-5 text-white" />
+            </div>
+            <h1 className="mb-2 text-3xl font-bold brand-gradient">
               {step === 'email' && 'Reset Password'}
               {step === 'otp' && 'Enter Code'}
               {step === 'password' && 'New Password'}
               {step === 'success' && 'Success!'}
             </h1>
-            <p className="text-gray-400 text-sm">
+            <p className="text-sm text-slate-600">
               {step === 'email' && "Enter your email to receive a reset code"}
               {step === 'otp' && `We sent a 6-digit code to ${email}`}
               {step === 'password' && 'Create a strong password'}
@@ -169,75 +169,73 @@ export default function ForgotPassword() {
             </p>
           </div>
 
-          {/* Error Message */}
           {error && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg flex items-start gap-3 text-red-400"
+              className="mb-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700"
             >
               <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
               <span className="text-sm">{error}</span>
             </motion.div>
           )}
 
-          {/* Email Step */}
           {step === 'email' && (
             <form onSubmit={emailForm.handleSubmit(handleRequestReset)} className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
                   Email Address
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                   <input
                     {...emailForm.register('email')}
                     type="email"
-                    className="w-full pl-11 pr-4 py-3 bg-slate-800/50 border border-purple-500/20 rounded-lg focus:outline-none focus:border-purple-500 text-white placeholder-gray-500"
+                    className="input-elevated w-full rounded-xl border border-slate-200 py-3 pl-11 pr-4 text-slate-800 placeholder-slate-400 focus:outline-none"
                     placeholder="you@example.com"
                   />
                 </div>
                 {emailForm.formState.errors.email && (
-                  <p className="mt-2 text-sm text-red-400">{emailForm.formState.errors.email.message}</p>
+                  <p className="mt-2 text-sm text-red-600">{emailForm.formState.errors.email.message}</p>
                 )}
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 bg-gradient-to-r from-violet-600 to-purple-600 rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-liquid btn-runway w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-500 py-3 font-semibold text-white shadow-lg shadow-blue-200 transition-all disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {loading ? 'Sending...' : 'Send Reset Code'}
+                <CarFront aria-hidden="true" className="btn-runner h-4 w-4" />
               </button>
             </form>
           )}
 
-          {/* OTP Step */}
           {step === 'otp' && (
             <form onSubmit={otpForm.handleSubmit(handleVerifyOTP)} className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
                   Verification Code
                 </label>
                 <input
                   {...otpForm.register('code')}
                   type="text"
                   maxLength={6}
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-purple-500/20 rounded-lg focus:outline-none focus:border-purple-500 text-white text-center text-2xl tracking-widest"
+                  className="input-elevated w-full rounded-xl border border-slate-200 px-4 py-3 text-center text-2xl tracking-widest text-slate-800 focus:outline-none"
                   placeholder="000000"
                 />
                 {otpForm.formState.errors.code && (
-                  <p className="mt-2 text-sm text-red-400">{otpForm.formState.errors.code.message}</p>
+                  <p className="mt-2 text-sm text-red-600">{otpForm.formState.errors.code.message}</p>
                 )}
               </div>
 
-              <div className="text-center text-sm text-gray-400">
+              <div className="text-center text-sm text-slate-500">
                 Didn't receive the code?{' '}
                 <button
                   type="button"
                   onClick={handleResendOTP}
                   disabled={resendTimer > 0 || loading}
-                  className="text-purple-400 hover:text-purple-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend'}
                 </button>
@@ -246,78 +244,79 @@ export default function ForgotPassword() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 bg-gradient-to-r from-violet-600 to-purple-600 rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-liquid btn-runway w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-500 py-3 font-semibold text-white shadow-lg shadow-blue-200 transition-all disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {loading ? 'Verifying...' : 'Verify Code'}
+                <CarFront aria-hidden="true" className="btn-runner h-4 w-4" />
               </button>
             </form>
           )}
 
-          {/* Password Step */}
           {step === 'password' && (
             <form onSubmit={passwordForm.handleSubmit(handleResetPassword)} className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
                   New Password
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                   <input
                     {...passwordForm.register('password')}
                     type="password"
-                    className="w-full pl-11 pr-4 py-3 bg-slate-800/50 border border-purple-500/20 rounded-lg focus:outline-none focus:border-purple-500 text-white"
+                    className="input-elevated w-full rounded-xl border border-slate-200 py-3 pl-11 pr-4 text-slate-800 focus:outline-none"
                     placeholder="••••••••"
                   />
                 </div>
                 {passwordForm.formState.errors.password && (
-                  <p className="mt-2 text-sm text-red-400">{passwordForm.formState.errors.password.message}</p>
+                  <p className="mt-2 text-sm text-red-600">{passwordForm.formState.errors.password.message}</p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
                   Confirm Password
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                   <input
                     {...passwordForm.register('confirmPassword')}
                     type="password"
-                    className="w-full pl-11 pr-4 py-3 bg-slate-800/50 border border-purple-500/20 rounded-lg focus:outline-none focus:border-purple-500 text-white"
+                    className="input-elevated w-full rounded-xl border border-slate-200 py-3 pl-11 pr-4 text-slate-800 focus:outline-none"
                     placeholder="••••••••"
                   />
                 </div>
                 {passwordForm.formState.errors.confirmPassword && (
-                  <p className="mt-2 text-sm text-red-400">{passwordForm.formState.errors.confirmPassword.message}</p>
+                  <p className="mt-2 text-sm text-red-600">{passwordForm.formState.errors.confirmPassword.message}</p>
                 )}
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 bg-gradient-to-r from-violet-600 to-purple-600 rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-liquid btn-runway w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-500 py-3 font-semibold text-white shadow-lg shadow-blue-200 transition-all disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {loading ? 'Resetting...' : 'Reset Password'}
+                <CarFront aria-hidden="true" className="btn-runner h-4 w-4" />
               </button>
             </form>
           )}
 
-          {/* Success Step */}
           {step === 'success' && (
             <div className="text-center space-y-6">
-              <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto">
-                <CheckCircle2 className="w-8 h-8 text-green-400" />
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
+                <CheckCircle2 className="w-8 h-8 text-emerald-600" />
               </div>
               
-              <p className="text-gray-300">
+              <p className="text-slate-600">
                 Your password has been successfully reset. You can now log in with your new password.
               </p>
 
               <button
                 onClick={() => navigate('/login')}
-                className="w-full py-3 bg-gradient-to-r from-violet-600 to-purple-600 rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
+                className="btn-liquid btn-runway w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-500 py-3 font-semibold text-white shadow-lg shadow-blue-200 transition-all"
               >
                 Go to Login
+                <CarFront aria-hidden="true" className="btn-runner h-4 w-4" />
               </button>
             </div>
           )}

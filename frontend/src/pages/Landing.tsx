@@ -1,62 +1,57 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, Target, Zap, Menu, X } from 'lucide-react';
+import Lottie from 'lottie-react';
+import { Sparkles, Target, Zap, Menu, X, ArrowRight, CheckCircle2, CarFront } from 'lucide-react';
+import heroAnimation from '@/assets/animations/hero.json';
+import { Brand } from '@/components/Brand';
 
 export default function Landing() {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isAnimating, setIsAnimating] = useState(true);
 
   return (
-    <div className="w-full min-h-screen bg-white overflow-x-hidden">
-      {/* Navigation */}
-      <nav className="sticky top-0 z-50 w-full bg-white border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-violet-600 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg shadow-violet-200">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-lg font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">Resume.AI</span>
-          </div>
+    <div className="w-full min-h-screen overflow-x-hidden">
+      <nav className="sticky top-0 z-50 w-full border-b border-white/70 bg-white/80 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+          <Brand size="sm" />
 
-          <div className="hidden md:flex items-center gap-6">
+          <div className="hidden md:flex items-center gap-4">
             <button 
               onClick={() => navigate('/login')} 
-              className="text-gray-700 hover:text-violet-600 font-medium transition-colors"
+              className="cursor-pointer rounded-lg px-3 py-2 text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900"
             >
               Sign In
             </button>
             <button 
               onClick={() => navigate('/login?mode=signup')}
-              className="px-6 py-2 bg-violet-600 text-white rounded-lg font-medium hover:bg-violet-700 transition-colors"
+              className="btn-liquid btn-runway cursor-pointer rounded-xl bg-gradient-to-r from-blue-600 to-indigo-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-200 transition-all duration-200 hover:brightness-105"
             >
               Get Started
+              <CarFront aria-hidden="true" className="btn-runner h-4 w-4" />
             </button>
           </div>
 
-          {/* Mobile Menu Button */}
           <button 
-            className="md:hidden p-2"
+            className="md:hidden p-2 rounded-md hover:bg-slate-100"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
         </div>
 
-        {/* Mobile Menu Content */}
         {mobileMenuOpen && (
           <motion.div 
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="md:hidden bg-white border-t border-gray-100 px-6 py-4 space-y-3"
+            className="md:hidden border-t border-white/70 bg-white px-6 py-4 space-y-3"
           >
             <button 
               onClick={() => {
                 navigate('/login');
                 setMobileMenuOpen(false);
               }}
-              className="block w-full text-left text-gray-700 hover:text-violet-600 font-medium py-2"
+              className="block w-full cursor-pointer rounded-lg py-2 text-left text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900"
             >
               Sign In
             </button>
@@ -65,7 +60,7 @@ export default function Landing() {
                 navigate('/login?mode=signup');
                 setMobileMenuOpen(false);
               }}
-              className="block w-full px-6 py-2 bg-violet-600 text-white rounded-lg font-medium text-center"
+              className="btn-liquid block w-full cursor-pointer rounded-xl bg-gradient-to-r from-blue-600 to-indigo-500 px-6 py-2.5 text-center text-sm font-semibold text-white"
             >
               Get Started
             </button>
@@ -73,168 +68,117 @@ export default function Landing() {
         )}
       </nav>
 
-      {/* Hero Section */}
-      <section className="w-full px-6 py-20 md:py-32">
-        <div className="max-w-4xl mx-auto text-center space-y-8">
+      <section className="w-full px-6 pb-12 pt-14 md:pt-20">
+        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-2 lg:items-center">
+          <div className="space-y-8">
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45 }}
+              className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white/85 px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-blue-700"
+            >
+              Built for interview outcomes
+            </motion.div>
+
           <motion.h1 
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight"
+            transition={{ duration: 0.5 }}
+            className="text-4xl font-extrabold leading-tight text-slate-900 md:text-5xl lg:text-6xl"
           >
-            Create Professional Resumes
+            Build role-ready resumes with{' '}
+            <span className="brand-gradient">Resum.Ai</span>
           </motion.h1>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-          >
-            <p className="text-3xl md:text-4xl font-bold">
-              <span className="text-violet-600">Powered by AI</span>
-            </p>
-          </motion.div>
-
           <motion.p 
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed"
+            transition={{ duration: 0.5, delay: 0.08 }}
+            className="max-w-xl text-lg leading-relaxed text-slate-600"
           >
-            Generate ATS-optimized resumes in seconds. Match jobs automatically. 
-            Land interviews faster with intelligent resume optimization.
+            Generate ATS-optimized resumes, refine with AI chat, tailor per job, and export production-grade PDF and LaTeX in minutes.
           </motion.p>
 
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="flex flex-col sm:flex-row gap-4 justify-center pt-4"
+            transition={{ duration: 0.5, delay: 0.16 }}
+            className="flex flex-col gap-3 sm:flex-row"
           >
             <button 
               onClick={() => navigate('/login?mode=signup')}
-              className="px-8 py-3 bg-violet-600 text-white rounded-lg font-semibold text-base hover:bg-violet-700 transition-colors"
+              className="btn-liquid btn-runway inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-500 px-7 py-3.5 text-base font-semibold text-white shadow-lg shadow-blue-200 transition-all duration-200 hover:brightness-105"
             >
-              Start Free
+              Start Building
+              <ArrowRight className="h-4 w-4" />
+              <CarFront aria-hidden="true" className="btn-runner h-4 w-4" />
             </button>
             <button 
               onClick={() => navigate('/login')}
-              className="px-8 py-3 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold text-base hover:border-gray-400 transition-colors"
+              className="cursor-pointer rounded-xl border border-slate-200 bg-white px-7 py-3.5 text-base font-semibold text-slate-700 transition-colors hover:bg-slate-50"
             >
               Sign In
             </button>
           </motion.div>
 
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-            className="text-sm text-gray-500 pt-2"
-          >
-            No credit card required · Free forever plan
-          </motion.p>
-        </div>
-      </section>
-
-      {/* Animated Background Demo */}
-      <section className="w-full px-6 py-16 md:py-20 bg-gradient-to-b from-violet-50/30 to-white">
-        <div className="max-w-4xl mx-auto">
-          <div className="relative">
-            {/* Resume Card Animation */}
-            <motion.div
-              animate={isAnimating ? {
-                y: [0, -20, 0],
-                rotateX: [0, 5, 0],
-              } : {}}
-              transition={{
-                duration: 4,
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
-              className="bg-white rounded-lg shadow-xl p-8 border border-gray-200"
-              style={{ perspective: '1000px' }}
-            >
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-2 flex-1">
-                    <div className="h-4 bg-gradient-to-r from-violet-600 to-purple-600 rounded-full w-48" />
-                    <div className="h-3 bg-gray-200 rounded-full w-32" />
-                  </div>
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-violet-200 to-purple-200" />
-                </div>
-                <div className="space-y-3 pt-4">
-                  <div className="h-3 bg-gray-800 rounded w-24" />
-                  <div className="h-2 bg-gray-300 rounded w-full" />
-                  <div className="h-2 bg-gray-200 rounded w-5/6" />
-                  <div className="h-2 bg-gray-200 rounded w-4/5" />
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Professional Pause/Play Button */}
-            <motion.button
-              onClick={() => setIsAnimating(!isAnimating)}
-              className="absolute -bottom-8 left-1/2 -translate-x-1/2 w-16 h-16 bg-gradient-to-br from-violet-600 to-purple-600 rounded-full shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center text-white group"
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              {isAnimating ? (
-                // Pause Icon
-                <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
-                  <rect x="6" y="4" width="4" height="16" rx="1" />
-                  <rect x="14" y="4" width="4" height="16" rx="1" />
-                </svg>
-              ) : (
-                // Play Icon
-                <svg className="w-7 h-7 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-              )}
-            </motion.button>
+          <div className="grid gap-2 pt-1 text-sm text-slate-600 md:grid-cols-2">
+            <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> ATS-ready output</div>
+            <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> Job-fit scoring</div>
+            <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> AI refinement chat</div>
+            <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> PDF + LaTeX export</div>
+          </div>
           </div>
 
-          <p className="text-center text-sm text-gray-600 mt-12">
-            {isAnimating ? 'Resume animations active' : 'Resume animations paused'}
-          </p>
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="glass-card rounded-3xl p-5"
+          >
+            <Lottie animationData={heroAnimation} loop className="h-[360px] w-full" />
+            <div className="mt-2 rounded-2xl border border-blue-100 bg-white/90 p-4">
+              <p className="text-xs uppercase tracking-[0.1em] text-slate-500">Live pipeline</p>
+              <p className="mt-1 text-sm text-slate-700">Profile + Projects + Job Description → AI-crafted resume draft with instant preview.</p>
+            </div>
+          </motion.div>
         </div>
       </section>
 
-      {/* Features */}
-      <section className="w-full px-6 py-20 md:py-24 bg-gray-50">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <section className="w-full px-6 py-20">
+        <div className="mx-auto max-w-6xl">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
             {[
               {
                 icon: Sparkles,
-                title: "AI-Powered",
-                description: "Generate professional resumes instantly with advanced AI technology"
+                title: "AI-Powered Creation",
+                description: "Generate professional resume drafts from role context and your profile data."
               },
               {
                 icon: Target,
-                title: "ATS Optimized",
-                description: "Beat applicant tracking systems with optimized formatting"
+                title: "ATS Optimization",
+                description: "Keep structure and keywords aligned with recruiter and ATS expectations."
               },
               {
                 icon: Zap,
                 title: "Job Matching",
-                description: "Find and match relevant jobs automatically with smart search"
+                description: "Search opportunities and instantly craft job-specific resume versions."
               }
             ].map((feature, index) => (
               <motion.div
                 key={index}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 12 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1 }}
-                className="p-8 bg-white rounded-xl border border-gray-200 hover:border-gray-300 transition-colors"
+                className="glass-card p-7 rounded-2xl"
               >
-                <div className="w-12 h-12 bg-violet-100 rounded-lg flex items-center justify-center mb-4 flex-shrink-0">
-                  <feature.icon className="w-6 h-6 text-violet-600" />
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50">
+                  <feature.icon className="w-6 h-6 text-blue-600" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                <h3 className="mb-2 text-lg font-semibold text-slate-900">
                   {feature.title}
                 </h3>
-                <p className="text-gray-600 text-sm leading-relaxed">
+                <p className="text-sm leading-relaxed text-slate-600">
                   {feature.description}
                 </p>
               </motion.div>
@@ -243,49 +187,44 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="w-full px-6 py-20 md:py-24">
-        <div className="max-w-3xl mx-auto text-center space-y-6">
+      <section className="w-full px-6 pb-16 pt-8">
+        <div className="glass-card mx-auto max-w-4xl space-y-6 rounded-3xl p-10 text-center">
           <motion.h2 
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-3xl md:text-4xl font-bold text-gray-900"
+            className="text-3xl font-extrabold text-slate-900 md:text-4xl"
           >
-            Ready to Get Started?
+            Ready to launch your next role with confidence?
           </motion.h2>
           <motion.p 
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.1 }}
-            className="text-lg text-gray-600"
+            className="text-lg text-slate-600"
           >
-            Join thousands of professionals using Resume.AI
+            Join professionals using Resum.Ai to ship better resumes, faster.
           </motion.p>
           <motion.button 
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.2 }}
             onClick={() => navigate('/login?mode=signup')}
-            className="inline-block px-8 py-3 bg-violet-600 text-white rounded-lg font-semibold text-base hover:bg-violet-700 transition-colors"
+            className="btn-liquid btn-runway inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-500 px-8 py-3 text-base font-semibold text-white shadow-lg shadow-blue-200 transition-all duration-200 hover:brightness-105"
           >
             Create Your Resume
+            <ArrowRight className="h-4 w-4" />
+            <CarFront aria-hidden="true" className="btn-runner h-4 w-4" />
           </motion.button>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="w-full py-8 px-6 border-t border-gray-100 bg-white">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-gray-600">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-gradient-to-br from-violet-600 to-purple-600 rounded flex items-center justify-center flex-shrink-0">
-              <Sparkles className="w-4 h-4 text-white" />
-            </div>
-            <span className="font-semibold text-gray-900">Resume.AI</span>
-          </div>
-          <div className="text-center md:text-right">© 2024 Resume.AI. All rights reserved.</div>
+      <footer className="w-full border-t border-white/70 bg-white/70 px-6 py-7 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 text-sm text-slate-600 md:flex-row">
+          <Brand size="sm" />
+          <div>© 2026 Resum.Ai. All rights reserved.</div>
         </div>
       </footer>
     </div>

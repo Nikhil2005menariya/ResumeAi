@@ -16,9 +16,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { projectsApi } from '@/lib/api'
-import { formatDate } from '@/lib/utils'
 
 export function ProjectsPage() {
   const queryClient = useQueryClient()
@@ -77,12 +76,11 @@ export function ProjectsPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
+    <div className="page-wrap space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">My Projects</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-3xl font-extrabold text-slate-900">My Projects</h1>
+          <p className="mt-1 text-slate-600">
             Showcase your work for AI-powered resume generation
           </p>
         </div>
@@ -92,7 +90,6 @@ export function ProjectsPage() {
         </Button>
       </div>
 
-      {/* Add Project Form */}
       {isAdding && (
         <ProjectForm
           onSubmit={(data) => createMutation.mutate(data)}
@@ -101,7 +98,6 @@ export function ProjectsPage() {
         />
       )}
 
-      {/* Projects Grid */}
       {projects && projects.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {projects.map((project: any) => (
@@ -126,7 +122,7 @@ export function ProjectsPage() {
           ))}
         </div>
       ) : !isAdding ? (
-        <Card>
+        <Card className="glass-card">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <FolderKanban className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
             <h3 className="font-semibold">No projects yet</h3>
@@ -152,7 +148,7 @@ interface ProjectFormProps {
 }
 
 function ProjectForm({ defaultValues, onSubmit, onCancel, isSubmitting }: ProjectFormProps) {
-  const { register, handleSubmit, watch, setValue } = useForm({
+  const { register, handleSubmit } = useForm({
     defaultValues: {
       title: defaultValues?.title || '',
       description: defaultValues?.description || '',
@@ -174,7 +170,7 @@ function ProjectForm({ defaultValues, onSubmit, onCancel, isSubmitting }: Projec
   }
 
   return (
-    <Card className="col-span-full">
+    <Card className="glass-card col-span-full">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>{defaultValues ? 'Edit Project' : 'New Project'}</CardTitle>
         <Button variant="ghost" size="icon" onClick={onCancel}>
@@ -254,7 +250,7 @@ interface ProjectCardProps {
 
 function ProjectCard({ project, onEdit, onDelete, onToggleFeatured, isDeleting }: ProjectCardProps) {
   return (
-    <Card className={`hover:shadow-md transition-shadow ${project.is_featured ? 'ring-2 ring-yellow-400' : ''}`}>
+    <Card className={`glass-card transition-all ${project.is_featured ? 'ring-2 ring-yellow-400' : ''}`}>
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-lg leading-tight">{project.title}</CardTitle>

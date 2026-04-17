@@ -50,17 +50,15 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-4xl">
-      {/* Header */}
+    <div className="page-wrap max-w-4xl space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">My Profile</h1>
-        <p className="text-muted-foreground mt-1">
+        <h1 className="text-3xl font-extrabold text-slate-900">My Profile</h1>
+        <p className="mt-1 text-slate-600">
           Keep your profile updated for better resume generation
         </p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 border-b">
+      <div className="glass-card flex gap-2 rounded-2xl p-2">
         {[
           { id: 'info', label: 'Basic Info', icon: User },
           { id: 'education', label: 'Education', icon: GraduationCap },
@@ -70,10 +68,10 @@ export function ProfilePage() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 -mb-[2px] transition-colors ${
+            className={`flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors ${
               activeTab === tab.id
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
+                ? 'bg-primary text-primary-foreground'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
             }`}
           >
             <tab.icon className="h-4 w-4" />
@@ -82,7 +80,6 @@ export function ProfilePage() {
         ))}
       </div>
 
-      {/* Tab Content */}
       {activeTab === 'info' && (
         <BasicInfoTab profile={profile} onUpdate={(data) => updateMutation.mutate(data)} isUpdating={updateMutation.isPending} />
       )}

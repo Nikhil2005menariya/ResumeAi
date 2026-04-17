@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { FileText, Download, Trash2, Edit2, Loader2, Plus, ExternalLink } from 'lucide-react'
+import { FileText, Download, Edit2, Loader2, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { resumesApi } from '@/lib/api'
@@ -54,12 +54,11 @@ export function ResumesPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
+    <div className="page-wrap space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">My Resumes</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-3xl font-extrabold text-slate-900">My Resumes</h1>
+          <p className="mt-1 text-slate-600">
             View and download your AI-generated resumes
           </p>
         </div>
@@ -71,11 +70,10 @@ export function ResumesPage() {
         </Link>
       </div>
 
-      {/* Resumes Grid */}
       {resumes && resumes.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {resumes.map((resume: any) => (
-            <Card key={resume.id} className="hover:shadow-md transition-shadow">
+            <Card key={resume.id} className="glass-card transition-all">
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-3">
@@ -138,7 +136,7 @@ export function ResumesPage() {
           ))}
         </div>
       ) : (
-        <Card>
+        <Card className="glass-card">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <FileText className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
             <h3 className="font-semibold">No resumes yet</h3>

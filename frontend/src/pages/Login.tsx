@@ -5,12 +5,15 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAuth0 } from '@auth0/auth0-react'
 import toast from 'react-hot-toast'
-import { Sparkles, Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react'
+import { Mail, Lock, User, ArrowRight, Loader2, CarFront } from 'lucide-react'
+import Lottie from 'lottie-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { authApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store'
+import authAnimation from '@/assets/animations/auth.json'
+import { Brand } from '@/components/Brand'
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -55,7 +58,7 @@ export function LoginPage() {
       const response = await authApi.login(data)
       setAuth(response.data.user, response.data.access_token)
       toast.success('Welcome back!')
-      navigate('/dashboard')
+      navigate('/app/dashboard')
     } catch (error: any) {
       toast.error(error.response?.data?.detail || 'Login failed')
     } finally {
@@ -83,7 +86,7 @@ export function LoginPage() {
       const response = await authApi.verifyOtp({ email, code: data.code })
       setAuth(response.data.user, response.data.access_token)
       toast.success('Email verified! Welcome!')
-      navigate('/dashboard')
+      navigate('/app/dashboard')
     } catch (error: any) {
       toast.error(error.response?.data?.detail || 'Invalid verification code')
     } finally {
@@ -115,21 +118,22 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="flex items-center justify-center gap-2 mb-8">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-purple-600 shadow-lg">
-            <Sparkles className="h-7 w-7 text-white" />
+    <div className="min-h-screen px-4 py-10">
+      <div className="mx-auto grid w-full max-w-6xl items-center gap-8 lg:grid-cols-2">
+        <div className="hidden lg:block">
+          <div className="glass-card rounded-3xl p-6">
+            <Brand size="sm" className="mb-4" />
+            <Lottie animationData={authAnimation} loop className="h-[360px] w-full" />
+            <p className="text-sm leading-relaxed text-slate-600">
+              Secure sign-in, instant onboarding, and direct access to your resume workspace.
+            </p>
           </div>
-          <span className="text-2xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
-            Resum.Ai
-          </span>
         </div>
 
-        <Card className="shadow-xl">
+        <Card className="mx-auto w-full max-w-md shadow-[0_20px_45px_-30px_rgba(15,23,42,0.45)]">
           <CardHeader className="text-center">
-            <CardTitle>
+            <Brand size="sm" className="mx-auto mb-2 justify-center" />
+            <CardTitle className="text-2xl">
               {mode === 'login' && 'Welcome Back'}
               {mode === 'signup' && 'Create Account'}
               {mode === 'otp' && 'Verify Email'}
@@ -172,9 +176,8 @@ export function LoginPage() {
                   )}
                 </div>
                 
-                {/* Forgot Password Link */}
                 <div className="text-right -mt-1">
-                  <Link 
+                  <Link
                     to="/forgot-password" 
                     className="text-sm text-primary hover:underline"
                   >
@@ -182,10 +185,11 @@ export function LoginPage() {
                   </Link>
                 </div>
                 
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <Button type="submit" className="btn-liquid btn-runway w-full" disabled={isLoading}>
                   {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                   Sign In
                   <ArrowRight className="h-4 w-4 ml-2" />
+                  <CarFront aria-hidden="true" className="btn-runner h-4 w-4" />
                 </Button>
               </form>
             )}
@@ -233,10 +237,11 @@ export function LoginPage() {
                     <p className="text-xs text-destructive">{signupForm.formState.errors.password.message}</p>
                   )}
                 </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <Button type="submit" className="btn-liquid btn-runway w-full" disabled={isLoading}>
                   {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                   Create Account
                   <ArrowRight className="h-4 w-4 ml-2" />
+                  <CarFront aria-hidden="true" className="btn-runner h-4 w-4" />
                 </Button>
               </form>
             )}
