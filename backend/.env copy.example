@@ -29,3 +29,12 @@ SERPAPI_KEY=your-serpapi-key
 # App
 FRONTEND_URL=http://localhost:5173
 BACKEND_URL=http://localhost:8000
+
+# AWS S3 (resume PDF storage)
+AWS_REGION=ap-south-1
+AWS_S3_BUCKET_NAME=nik-resum-ai
+AWS_ACCESS_KEY_ID=your-access-key-id
+AWS_SECRET_ACCESS_KEY=your-secret-access-key
+# Optional
+# AWS_SESSION_TOKEN=your-session-token
+# AWS_S3_ENDPOINT_URL=http://localhost:4566

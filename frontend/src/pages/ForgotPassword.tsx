@@ -1,11 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Mail, Lock, ArrowLeft, CheckCircle2, AlertCircle, Sparkles, CarFront } from 'lucide-react';
+import { Mail, Lock, ArrowLeft, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import axios from 'axios';
+import Lottie from 'lottie-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { BrandWordmark } from '@/components/Brand';
+import authAnimation from '@/assets/animations/auth.json';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -136,192 +142,177 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md"
+    <div className="relative min-h-screen px-4 py-10">
+      <Link
+        to="/login"
+        className="absolute left-6 top-6 inline-flex items-center gap-2 text-sm text-slate-500 transition-colors hover:text-slate-900"
       >
-        <Link
-          to="/login"
-          className="mb-6 inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Login
-        </Link>
+        <ArrowLeft className="h-4 w-4" />
+        Back to Login
+      </Link>
 
-        <div className="glass-card rounded-3xl p-8 shadow-[0_22px_50px_-30px_rgba(15,23,42,0.4)]">
-          <div className="text-center mb-8">
-            <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 via-indigo-500 to-orange-500 shadow-lg shadow-blue-200">
-              <Sparkles className="h-5 w-5 text-white" />
-            </div>
-            <h1 className="mb-2 text-3xl font-bold brand-gradient">
-              {step === 'email' && 'Reset Password'}
-              {step === 'otp' && 'Enter Code'}
-              {step === 'password' && 'New Password'}
-              {step === 'success' && 'Success!'}
-            </h1>
-            <p className="text-sm text-slate-600">
-              {step === 'email' && "Enter your email to receive a reset code"}
-              {step === 'otp' && `We sent a 6-digit code to ${email}`}
-              {step === 'password' && 'Create a strong password'}
-              {step === 'success' && 'Your password has been reset'}
+      <div className="mx-auto grid w-full max-w-6xl items-center gap-8 lg:grid-cols-2">
+        <div className="hidden lg:block">
+          <div className="glass-card rounded-3xl p-6">
+            <BrandWordmark size="sm" className="mb-4" />
+            <Lottie animationData={authAnimation} loop className="h-[360px] w-full" />
+            <p className="text-sm leading-relaxed text-slate-600">
+              Secure password recovery with guided verification and protected account reset flow.
             </p>
           </div>
-
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mb-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700"
-            >
-              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-              <span className="text-sm">{error}</span>
-            </motion.div>
-          )}
-
-          {step === 'email' && (
-            <form onSubmit={emailForm.handleSubmit(handleRequestReset)} className="space-y-6">
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                  <input
-                    {...emailForm.register('email')}
-                    type="email"
-                    className="input-elevated w-full rounded-xl border border-slate-200 py-3 pl-11 pr-4 text-slate-800 placeholder-slate-400 focus:outline-none"
-                    placeholder="you@example.com"
-                  />
-                </div>
-                {emailForm.formState.errors.email && (
-                  <p className="mt-2 text-sm text-red-600">{emailForm.formState.errors.email.message}</p>
-                )}
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn-liquid btn-runway w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-500 py-3 font-semibold text-white shadow-lg shadow-blue-200 transition-all disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {loading ? 'Sending...' : 'Send Reset Code'}
-                <CarFront aria-hidden="true" className="btn-runner h-4 w-4" />
-              </button>
-            </form>
-          )}
-
-          {step === 'otp' && (
-            <form onSubmit={otpForm.handleSubmit(handleVerifyOTP)} className="space-y-6">
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Verification Code
-                </label>
-                <input
-                  {...otpForm.register('code')}
-                  type="text"
-                  maxLength={6}
-                  className="input-elevated w-full rounded-xl border border-slate-200 px-4 py-3 text-center text-2xl tracking-widest text-slate-800 focus:outline-none"
-                  placeholder="000000"
-                />
-                {otpForm.formState.errors.code && (
-                  <p className="mt-2 text-sm text-red-600">{otpForm.formState.errors.code.message}</p>
-                )}
-              </div>
-
-              <div className="text-center text-sm text-slate-500">
-                Didn't receive the code?{' '}
-                <button
-                  type="button"
-                  onClick={handleResendOTP}
-                  disabled={resendTimer > 0 || loading}
-                  className="text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend'}
-                </button>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn-liquid btn-runway w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-500 py-3 font-semibold text-white shadow-lg shadow-blue-200 transition-all disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {loading ? 'Verifying...' : 'Verify Code'}
-                <CarFront aria-hidden="true" className="btn-runner h-4 w-4" />
-              </button>
-            </form>
-          )}
-
-          {step === 'password' && (
-            <form onSubmit={passwordForm.handleSubmit(handleResetPassword)} className="space-y-6">
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
-                  New Password
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                  <input
-                    {...passwordForm.register('password')}
-                    type="password"
-                    className="input-elevated w-full rounded-xl border border-slate-200 py-3 pl-11 pr-4 text-slate-800 focus:outline-none"
-                    placeholder="••••••••"
-                  />
-                </div>
-                {passwordForm.formState.errors.password && (
-                  <p className="mt-2 text-sm text-red-600">{passwordForm.formState.errors.password.message}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Confirm Password
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                  <input
-                    {...passwordForm.register('confirmPassword')}
-                    type="password"
-                    className="input-elevated w-full rounded-xl border border-slate-200 py-3 pl-11 pr-4 text-slate-800 focus:outline-none"
-                    placeholder="••••••••"
-                  />
-                </div>
-                {passwordForm.formState.errors.confirmPassword && (
-                  <p className="mt-2 text-sm text-red-600">{passwordForm.formState.errors.confirmPassword.message}</p>
-                )}
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn-liquid btn-runway w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-500 py-3 font-semibold text-white shadow-lg shadow-blue-200 transition-all disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {loading ? 'Resetting...' : 'Reset Password'}
-                <CarFront aria-hidden="true" className="btn-runner h-4 w-4" />
-              </button>
-            </form>
-          )}
-
-          {step === 'success' && (
-            <div className="text-center space-y-6">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
-                <CheckCircle2 className="w-8 h-8 text-emerald-600" />
-              </div>
-              
-              <p className="text-slate-600">
-                Your password has been successfully reset. You can now log in with your new password.
-              </p>
-
-              <button
-                onClick={() => navigate('/login')}
-                className="btn-liquid btn-runway w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-500 py-3 font-semibold text-white shadow-lg shadow-blue-200 transition-all"
-              >
-                Go to Login
-                <CarFront aria-hidden="true" className="btn-runner h-4 w-4" />
-              </button>
-            </div>
-          )}
         </div>
-      </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="w-full">
+          <Card className="mx-auto w-full max-w-md shadow-[0_20px_45px_-30px_rgba(15,23,42,0.45)]">
+            <CardHeader className="text-center">
+              <BrandWordmark size="sm" className="mx-auto mb-2 items-center" />
+              <CardTitle className="text-2xl text-[#171717]">
+                {step === 'email' && 'Reset Password'}
+                {step === 'otp' && 'Enter Verification Code'}
+                {step === 'password' && 'Set New Password'}
+                {step === 'success' && 'Password Updated'}
+              </CardTitle>
+              <CardDescription>
+                {step === 'email' && 'Enter your email to receive a secure reset code.'}
+                {step === 'otp' && `A 6-digit code was sent to ${email}.`}
+                {step === 'password' && 'Create a strong new password for your account.'}
+                {step === 'success' && 'Your password has been reset successfully.'}
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent className="space-y-4">
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex items-start gap-2 rounded-lg bg-red-50 px-3 py-2.5 text-red-700 shadow-[rgba(220,38,38,0.15)_0px_0px_0px_1px]"
+                >
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span className="text-sm">{error}</span>
+                </motion.div>
+              )}
+
+              {step === 'email' && (
+                <form onSubmit={emailForm.handleSubmit(handleRequestReset)} className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-[#4d4d4d]">Email Address</label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        {...emailForm.register('email')}
+                        type="email"
+                        placeholder="you@example.com"
+                        className="pl-10"
+                      />
+                    </div>
+                    {emailForm.formState.errors.email ? (
+                      <p className="text-xs text-destructive">{emailForm.formState.errors.email.message}</p>
+                    ) : null}
+                  </div>
+
+                  <Button type="submit" disabled={loading} className="dashboard-btn-dark h-11 w-full rounded-md font-semibold">
+                    {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    {loading ? 'Sending Code...' : 'Send Reset Code'}
+                  </Button>
+                </form>
+              )}
+
+              {step === 'otp' && (
+                <form onSubmit={otpForm.handleSubmit(handleVerifyOTP)} className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-[#4d4d4d]">Verification Code</label>
+                    <Input
+                      {...otpForm.register('code')}
+                      type="text"
+                      maxLength={6}
+                      placeholder="000000"
+                      className="text-center text-2xl tracking-widest"
+                    />
+                    {otpForm.formState.errors.code ? (
+                      <p className="text-xs text-destructive">{otpForm.formState.errors.code.message}</p>
+                    ) : null}
+                  </div>
+
+                  <div className="text-center text-sm text-slate-500">
+                    Didn&apos;t receive the code?{' '}
+                    <button
+                      type="button"
+                      onClick={handleResendOTP}
+                      disabled={resendTimer > 0 || loading}
+                      className="font-medium text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend'}
+                    </button>
+                  </div>
+
+                  <Button type="submit" disabled={loading} className="dashboard-btn-dark h-11 w-full rounded-md font-semibold">
+                    {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    {loading ? 'Verifying...' : 'Verify Code'}
+                  </Button>
+                </form>
+              )}
+
+              {step === 'password' && (
+                <form onSubmit={passwordForm.handleSubmit(handleResetPassword)} className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-[#4d4d4d]">New Password</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        {...passwordForm.register('password')}
+                        type="password"
+                        placeholder="••••••••"
+                        className="pl-10"
+                      />
+                    </div>
+                    {passwordForm.formState.errors.password ? (
+                      <p className="text-xs text-destructive">{passwordForm.formState.errors.password.message}</p>
+                    ) : null}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-[#4d4d4d]">Confirm Password</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        {...passwordForm.register('confirmPassword')}
+                        type="password"
+                        placeholder="••••••••"
+                        className="pl-10"
+                      />
+                    </div>
+                    {passwordForm.formState.errors.confirmPassword ? (
+                      <p className="text-xs text-destructive">{passwordForm.formState.errors.confirmPassword.message}</p>
+                    ) : null}
+                  </div>
+
+                  <Button type="submit" disabled={loading} className="dashboard-btn-dark h-11 w-full rounded-md font-semibold">
+                    {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    {loading ? 'Resetting...' : 'Reset Password'}
+                  </Button>
+                </form>
+              )}
+
+              {step === 'success' && (
+                <div className="space-y-5 text-center">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
+                    <CheckCircle2 className="h-7 w-7 text-emerald-600" />
+                  </div>
+                  <p className="text-sm leading-relaxed text-slate-600">
+                    Your password has been successfully reset. You can now sign in with your new password.
+                  </p>
+                  <Button
+                    onClick={() => navigate('/login')}
+                    className="dashboard-btn-dark h-11 w-full rounded-md font-semibold"
+                  >
+                    Go to Login
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
     </div>
   );
 }

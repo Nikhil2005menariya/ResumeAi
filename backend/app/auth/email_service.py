@@ -1,6 +1,5 @@
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 from pydantic import EmailStr
-from typing import List
 
 from app.config import settings
 
@@ -19,102 +18,158 @@ mail_config = ConnectionConfig(
 )
 
 
-async def send_otp_email(email: EmailStr, otp: str) -> bool:
-    """Send OTP verification email"""
-    html = f"""
+APP_NAME = "Resum.Ai"
+APP_YEAR = "2026"
+
+
+def _build_email_shell(title: str, subtitle: str, content: str) -> str:
+    """Build a premium, theme-aligned HTML shell for transactional emails."""
+    return f"""
     <!DOCTYPE html>
     <html>
     <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <style>
             body {{
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                background-color: #f4f4f4;
                 margin: 0;
-                padding: 20px;
+                padding: 24px 16px;
+                background-color: #f8fafc;
+                color: #171717;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             }}
             .container {{
-                max-width: 600px;
+                max-width: 640px;
                 margin: 0 auto;
-                background-color: #ffffff;
-                border-radius: 10px;
-                padding: 40px;
-                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+                background: #ffffff;
+                border-radius: 14px;
+                padding: 36px 32px;
+                box-shadow:
+                    rgba(0, 0, 0, 0.08) 0px 0px 0px 1px,
+                    rgba(0, 0, 0, 0.04) 0px 2px 2px,
+                    rgba(0, 0, 0, 0.04) 0px 8px 12px -10px,
+                    #fafafa 0px 0px 0px 1px;
             }}
-            .header {{
+            .brand {{
                 text-align: center;
-                margin-bottom: 30px;
+                margin-bottom: 26px;
             }}
-            .logo {{
+            .brand-title {{
                 font-size: 28px;
-                font-weight: bold;
-                color: #6366f1;
+                font-weight: 600;
+                line-height: 1.1;
+                letter-spacing: -0.02em;
+                color: #111827;
+            }}
+            .brand-line {{
+                width: 84px;
+                height: 2px;
+                margin: 10px auto 0;
+                border-radius: 999px;
+                background: linear-gradient(90deg, #0a72ef 0%, #8b5cf6 55%, #de1d8d 100%);
+            }}
+            h1 {{
+                margin: 0;
+                text-align: center;
+                font-size: 30px;
+                line-height: 1.15;
+                letter-spacing: -0.03em;
+                color: #171717;
+                font-weight: 600;
+            }}
+            .subtitle {{
+                margin: 12px auto 0;
+                max-width: 520px;
+                text-align: center;
+                font-size: 16px;
+                line-height: 1.55;
+                color: #4d4d4d;
             }}
             .otp-box {{
-                background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-                color: white;
-                font-size: 36px;
-                font-weight: bold;
-                letter-spacing: 8px;
+                margin: 28px 0 20px;
+                border-radius: 12px;
+                padding: 16px 12px;
                 text-align: center;
-                padding: 20px;
-                border-radius: 10px;
-                margin: 30px 0;
+                background: #171717;
+                color: #ffffff;
+                font-size: 34px;
+                font-weight: 700;
+                letter-spacing: 10px;
+                font-family: 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
             }}
-            .message {{
-                color: #4b5563;
-                font-size: 16px;
-                line-height: 1.6;
+            .panel {{
+                margin-top: 18px;
+                border-radius: 10px;
+                padding: 14px 16px;
+                background: #f8fafc;
+                color: #334155;
+                font-size: 14px;
+                line-height: 1.5;
+                box-shadow: rgba(0, 0, 0, 0.06) 0px 0px 0px 1px inset;
+            }}
+            .muted {{
+                margin-top: 20px;
+                text-align: center;
+                font-size: 14px;
+                color: #666666;
+            }}
+            .cta-button {{
+                display: inline-block;
+                margin: 26px auto 0;
+                padding: 12px 22px;
+                border-radius: 8px;
+                background: #171717;
+                color: #ffffff !important;
+                text-decoration: none;
+                font-weight: 600;
+                font-size: 14px;
+                line-height: 1;
+            }}
+            .cta-wrap {{
                 text-align: center;
             }}
             .footer {{
-                margin-top: 30px;
+                margin-top: 28px;
+                padding-top: 18px;
+                border-top: 1px solid #ebebeb;
                 text-align: center;
-                color: #9ca3af;
-                font-size: 14px;
-            }}
-            .warning {{
-                background-color: #fef3c7;
-                border-left: 4px solid #f59e0b;
-                padding: 12px;
-                margin-top: 20px;
-                border-radius: 4px;
-                font-size: 14px;
-                color: #92400e;
+                font-size: 12px;
+                color: #808080;
             }}
         </style>
     </head>
     <body>
         <div class="container">
-            <div class="header">
-                <div class="logo">🚀 Resume Maker AI</div>
+            <div class="brand">
+                <div class="brand-title">{APP_NAME}</div>
+                <div class="brand-line"></div>
             </div>
-            
-            <p class="message">
-                Hello! Use the verification code below to complete your sign up.
-            </p>
-            
-            <div class="otp-box">
-                {otp}
-            </div>
-            
-            <p class="message">
-                This code will expire in <strong>10 minutes</strong>.
-            </p>
-            
-            <div class="warning">
-                ⚠️ If you didn't request this code, please ignore this email.
-            </div>
-            
+            <h1>{title}</h1>
+            <p class="subtitle">{subtitle}</p>
+            {content}
             <div class="footer">
-                <p>© 2024 Resume Maker AI. All rights reserved.</p>
+                <p>&copy; {APP_YEAR} {APP_NAME}. All rights reserved.</p>
             </div>
         </div>
     </body>
     </html>
     """
+
+
+async def send_otp_email(email: EmailStr, otp: str) -> bool:
+    """Send OTP verification email"""
+    html = _build_email_shell(
+        title="Verify your email",
+        subtitle="Use this one-time code to complete your sign up.",
+        content=f"""
+        <div class="otp-box">{otp}</div>
+        <p class="muted">This code will expire in <strong>10 minutes</strong>.</p>
+        <div class="panel">If you did not request this verification code, you can safely ignore this email.</div>
+        """,
+    )
     
     message = MessageSchema(
-        subject="🔐 Your Verification Code - Resume Maker AI",
+        subject=f"Your verification code | {APP_NAME}",
         recipients=[email],
         body=html,
         subtype=MessageType.html
@@ -131,121 +186,17 @@ async def send_otp_email(email: EmailStr, otp: str) -> bool:
 
 async def send_password_reset_email(email: EmailStr, otp: str) -> bool:
     """Send password reset OTP email"""
-    html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body {{
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                background-color: #f4f4f4;
-                margin: 0;
-                padding: 20px;
-            }}
-            .container {{
-                max-width: 600px;
-                margin: 0 auto;
-                background-color: #ffffff;
-                border-radius: 10px;
-                padding: 40px;
-                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            }}
-            .header {{
-                text-align: center;
-                margin-bottom: 30px;
-            }}
-            .logo {{
-                font-size: 28px;
-                font-weight: bold;
-                color: #6366f1;
-            }}
-            .icon {{
-                font-size: 48px;
-                text-align: center;
-                margin-bottom: 20px;
-            }}
-            .otp-box {{
-                background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-                color: white;
-                font-size: 36px;
-                font-weight: bold;
-                letter-spacing: 8px;
-                text-align: center;
-                padding: 20px;
-                border-radius: 10px;
-                margin: 30px 0;
-            }}
-            .message {{
-                color: #4b5563;
-                font-size: 16px;
-                line-height: 1.6;
-                text-align: center;
-            }}
-            .footer {{
-                margin-top: 30px;
-                text-align: center;
-                color: #9ca3af;
-                font-size: 14px;
-            }}
-            .warning {{
-                background-color: #fef3c7;
-                border-left: 4px solid #f59e0b;
-                padding: 12px;
-                margin-top: 20px;
-                border-radius: 4px;
-                font-size: 14px;
-                color: #92400e;
-            }}
-            .security-note {{
-                background-color: #dbeafe;
-                border-left: 4px solid #3b82f6;
-                padding: 12px;
-                margin-top: 20px;
-                border-radius: 4px;
-                font-size: 14px;
-                color: #1e40af;
-            }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <div class="logo">🚀 Resume Maker AI</div>
-            </div>
-            
-            <div class="icon">🔐</div>
-            
-            <p class="message">
-                <strong>Password Reset Request</strong><br><br>
-                We received a request to reset your password. Use the code below to create a new password.
-            </p>
-            
-            <div class="otp-box">
-                {otp}
-            </div>
-            
-            <p class="message">
-                This code will expire in <strong>10 minutes</strong>.
-            </p>
-            
-            <div class="security-note">
-                🛡️ For security reasons, we never ask for your password via email.
-            </div>
-            
-            <div class="warning">
-                ⚠️ If you didn't request a password reset, please ignore this email. Your account remains secure.
-            </div>
-            
-            <div class="footer">
-                <p>© 2024 Resume Maker AI. All rights reserved.</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
+    html = _build_email_shell(
+        title="Reset code",
+        subtitle="Use this one-time code to create/reset  password.",
+        content=f"""
+        <div class="otp-box">{otp}</div>
+        <p class="muted">This code will expire in <strong>10 minutes</strong>.</p>
+        """,
+    )
     
     message = MessageSchema(
-        subject="🔐 Password Reset Code - Resume Maker AI",
+        subject=f"Password reset code | {APP_NAME}",
         recipients=[email],
         body=html,
         subtype=MessageType.html
@@ -262,128 +213,25 @@ async def send_password_reset_email(email: EmailStr, otp: str) -> bool:
 
 async def send_welcome_email(email: EmailStr, name: str) -> bool:
     """Send welcome email after successful verification"""
-    html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body {{
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                background-color: #f4f4f4;
-                margin: 0;
-                padding: 20px;
-            }}
-            .container {{
-                max-width: 600px;
-                margin: 0 auto;
-                background-color: #ffffff;
-                border-radius: 10px;
-                padding: 40px;
-                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            }}
-            .header {{
-                text-align: center;
-                margin-bottom: 30px;
-            }}
-            .logo {{
-                font-size: 28px;
-                font-weight: bold;
-                color: #6366f1;
-            }}
-            .welcome-text {{
-                font-size: 24px;
-                color: #1f2937;
-                text-align: center;
-                margin-bottom: 20px;
-            }}
-            .message {{
-                color: #4b5563;
-                font-size: 16px;
-                line-height: 1.6;
-            }}
-            .feature-list {{
-                background-color: #f3f4f6;
-                border-radius: 8px;
-                padding: 20px;
-                margin: 20px 0;
-            }}
-            .feature-item {{
-                display: flex;
-                align-items: center;
-                margin: 10px 0;
-                color: #374151;
-            }}
-            .feature-icon {{
-                margin-right: 10px;
-                font-size: 20px;
-            }}
-            .cta-button {{
-                display: block;
-                width: 200px;
-                margin: 30px auto;
-                padding: 15px 30px;
-                background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-                color: white;
-                text-align: center;
-                text-decoration: none;
-                border-radius: 8px;
-                font-weight: bold;
-                font-size: 16px;
-            }}
-            .footer {{
-                margin-top: 30px;
-                text-align: center;
-                color: #9ca3af;
-                font-size: 14px;
-            }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <div class="logo">🚀 Resume Maker AI</div>
-            </div>
-            
-            <h1 class="welcome-text">Welcome, {name or 'there'}! 🎉</h1>
-            
-            <p class="message">
-                Your account has been verified successfully! You're now ready to create 
-                stunning, ATS-optimized resumes with the power of AI.
-            </p>
-            
-            <div class="feature-list">
-                <div class="feature-item">
-                    <span class="feature-icon">📝</span>
-                    <span>AI-powered resume generation</span>
-                </div>
-                <div class="feature-item">
-                    <span class="feature-icon">🎯</span>
-                    <span>High ATS score optimization</span>
-                </div>
-                <div class="feature-item">
-                    <span class="feature-icon">🔍</span>
-                    <span>Smart job search & matching</span>
-                </div>
-                <div class="feature-item">
-                    <span class="feature-icon">💬</span>
-                    <span>Real-time AI chat assistance</span>
-                </div>
-            </div>
-            
-            <a href="{settings.frontend_url}/dashboard" class="cta-button">
-                Go to Dashboard →
-            </a>
-            
-            <div class="footer">
-                <p>© 2024 Resume Maker AI. All rights reserved.</p>
-            </div>
+    html = _build_email_shell(
+        title=f"Welcome, {name or 'there'}",
+        subtitle="Your account is verified and ready for your premium resume workflow.",
+        content=f"""
+        <div class="panel">
+            <strong>What you can do next:</strong><br />
+            - Generate tailored resumes from job descriptions<br />
+            - Optimize content for ATS screening<br />
+            - Refine drafts with AI-guided editing<br />
+            - Export production-ready PDF and LaTeX
         </div>
-    </body>
-    </html>
-    """
+        <div class="cta-wrap">
+            <a href="{settings.frontend_url}/app/dashboard" class="cta-button">Go to Dashboard</a>
+        </div>
+        """,
+    )
     
     message = MessageSchema(
-        subject="🎉 Welcome to Resume Maker AI!",
+        subject=f"Welcome to {APP_NAME}",
         recipients=[email],
         body=html,
         subtype=MessageType.html

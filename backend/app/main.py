@@ -13,6 +13,7 @@ from app.routes import (
     projects_router,
     resumes_router,
     jobs_router,
+    tasks_router,
     websocket_router,
 )
 
@@ -64,6 +65,7 @@ app.include_router(profile_router, prefix="/api")
 app.include_router(projects_router, prefix="/api")
 app.include_router(resumes_router, prefix="/api")
 app.include_router(jobs_router, prefix="/api")
+app.include_router(tasks_router, prefix="/api")
 app.include_router(websocket_router)
 
 
@@ -95,7 +97,8 @@ async def api_info():
             "profile": "/api/profile",
             "projects": "/api/projects",
             "resumes": "/api/resumes",
-            "jobs": "/api/jobs"
+            "jobs": "/api/jobs",
+            "tasks": "/api/tasks"
         }
     }
 

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import Lottie from 'lottie-react';
-import { Sparkles, Target, Zap, Menu, X, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Menu, X, ArrowRight, CheckCircle2 } from 'lucide-react';
 import heroAnimation from '@/assets/animations/hero.json';
 import { BrandWordmark } from '@/components/Brand';
 

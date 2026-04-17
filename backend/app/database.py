@@ -6,6 +6,7 @@ from app.config import settings
 
 class Database:
     client: Optional[AsyncIOMotorClient] = None
+    db = None
     
     async def connect(self):
         """Connect to MongoDB"""
@@ -20,6 +21,8 @@ class Database:
         """Disconnect from MongoDB"""
         if self.client:
             self.client.close()
+            self.client = None
+            self.db = None
             print("Disconnected from MongoDB")
     
     async def _create_indexes(self):

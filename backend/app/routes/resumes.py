@@ -1,22 +1,21 @@
 from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException, status, Depends, Response
-from fastapi.responses import StreamingResponse, FileResponse
 from pydantic import BaseModel
 from bson import ObjectId
-import io
-import base64
-import os
-from pathlib import Path
+from redis.exceptions import RedisError
 
 from app.database import get_collection
 from app.auth import get_current_user
-from app.agent import run_agent, AgentStatus
 from app.models import ResumeResponse
-
-# PDF Storage Directory
-PDF_STORAGE_DIR = Path(__file__).parent.parent.parent / "storage" / "pdfs"
-PDF_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+from app.task_queue import enqueue_task
+from app.storage import (
+    build_pdf_s3_uri,
+    delete_resume_pdf,
+    get_resume_pdf as get_resume_pdf_from_storage,
+    get_resume_pdf_metadata,
+    upload_resume_pdf,
+)
 
 router = APIRouter(prefix="/resumes", tags=["Resumes"])
 
@@ -44,11 +43,10 @@ class ResumeDetailResponse(BaseModel):
     updated_at: datetime
 
 
-class AgentStatusResponse(BaseModel):
+class TaskAcceptedResponse(BaseModel):
+    job_id: str
     status: str
     status_message: str
-    resume_id: Optional[str] = None
-    has_pdf: bool = False
 
 
 @router.get("", response_model=List[ResumeResponse])
@@ -147,21 +145,20 @@ async def get_resume_pdf(
     
     print(f"✅ PDF compiled: {len(pdf_data)} bytes (Docker LaTeX)")
     
-    # Save PDF to file storage
-    pdf_filename = f"{resume_id}.pdf"
-    pdf_path = PDF_STORAGE_DIR / pdf_filename
+    try:
+        pdf_key = upload_resume_pdf(resume_id, pdf_data)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=f"S3 upload failed: {str(exc)}")
     
-    with open(pdf_path, "wb") as f:
-        f.write(pdf_data)
-    
-    print(f"💾 PDF saved to: {pdf_path}")
+    print(f"💾 PDF uploaded to S3: {pdf_key}")
     
     # Update database with file path (not binary data)
     await resumes_collection.update_one(
         {"_id": ObjectId(resume_id)},
         {
             "$set": {
-                "pdf_path": str(pdf_path),
+                "pdf_path": build_pdf_s3_uri(pdf_key),
+                "pdf_storage_key": pdf_key,
                 "pdf_size": len(pdf_data),
                 "pdf_compiled_at": datetime.utcnow()
             },
@@ -169,11 +166,10 @@ async def get_resume_pdf(
         }
     )
     
-    # Return the PDF file
-    return FileResponse(
-        path=pdf_path,
+    return Response(
+        content=pdf_data,
         media_type="application/pdf",
-        filename=f"{resume['title']}.pdf"
+        headers={"Content-Disposition": f'attachment; filename="{resume["title"]}.pdf"'},
     )
 
 
@@ -196,19 +192,19 @@ async def get_resume_preview(
     if not resume.get("latex_code"):
         raise HTTPException(status_code=404, detail="No LaTeX code available")
     
-    # Check if we have a recently compiled PDF file
-    pdf_path = PDF_STORAGE_DIR / f"{resume_id}.pdf"
-    
-    if pdf_path.exists():
-        # Verify the file is valid (not empty, not too small)
-        file_size = pdf_path.stat().st_size
-        if file_size > 10000:  # Must be > 10KB for a real LaTeX PDF
-            print(f"📄 Serving cached PDF: {pdf_path} ({file_size} bytes)")
-            return FileResponse(
-                path=pdf_path,
-                media_type="application/pdf",
-                headers={"Content-Disposition": "inline"}
-            )
+    try:
+        cached_pdf_meta = get_resume_pdf_metadata(resume_id)
+        if cached_pdf_meta and cached_pdf_meta["size"] > 10000:
+            cached_pdf_data = get_resume_pdf_from_storage(resume_id)
+            if cached_pdf_data:
+                print(f"📄 Serving cached PDF from S3 for {resume_id} ({cached_pdf_meta['size']} bytes)")
+                return Response(
+                    content=cached_pdf_data,
+                    media_type="application/pdf",
+                    headers={"Content-Disposition": "inline"},
+                )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=f"S3 read failed: {str(exc)}")
     
     # Compile fresh with Docker LaTeX
     from app.agent.tools import compile_latex_to_pdf
@@ -231,23 +227,28 @@ async def get_resume_preview(
     
     print(f"✅ PDF compiled for preview: {len(pdf_data)} bytes")
     
-    # Save to file
-    with open(pdf_path, "wb") as f:
-        f.write(pdf_data)
+    try:
+        upload_resume_pdf(resume_id, pdf_data)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=f"S3 upload failed: {str(exc)}")
     
-    return FileResponse(
-        path=pdf_path,
+    return Response(
+        content=pdf_data,
         media_type="application/pdf",
-        headers={"Content-Disposition": "inline"}
+        headers={"Content-Disposition": "inline"},
     )
 
 
-@router.post("/{resume_id}/recompile")
+@router.post(
+    "/{resume_id}/recompile",
+    response_model=TaskAcceptedResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
 async def recompile_resume_pdf(
     resume_id: str,
     current_user: dict = Depends(get_current_user)
 ):
-    """Force recompile PDF with Docker LaTeX - removes any old cached/ReportLab PDF"""
+    """Queue PDF recompilation task"""
     resumes_collection = get_collection("resumes")
     
     resume = await resumes_collection.find_one({
@@ -260,53 +261,28 @@ async def recompile_resume_pdf(
     
     if not resume.get("latex_code"):
         raise HTTPException(status_code=404, detail="No LaTeX code available")
-    
-    # Delete old PDF file if exists
-    pdf_path = PDF_STORAGE_DIR / f"{resume_id}.pdf"
-    if pdf_path.exists():
-        pdf_path.unlink()
-        print(f"🗑️ Deleted old PDF: {pdf_path}")
-    
-    # Compile fresh with Docker LaTeX
-    from app.agent.tools import compile_latex_to_pdf
-    
-    print(f"🔄 Force recompiling PDF for resume {resume_id}...")
-    pdf_data = compile_latex_to_pdf(resume["latex_code"])
-    
-    if not pdf_data:
-        raise HTTPException(
-            status_code=500, 
-            detail="PDF compilation failed. Ensure Docker is running."
-        )
-    
-    if b"ReportLab" in pdf_data:
-        raise HTTPException(
-            status_code=500,
-            detail="ReportLab detected! Docker LaTeX required."
-        )
-    
-    # Save to file
-    with open(pdf_path, "wb") as f:
-        f.write(pdf_data)
-    
-    # Update database
-    await resumes_collection.update_one(
-        {"_id": ObjectId(resume_id)},
-        {
-            "$set": {
-                "pdf_path": str(pdf_path),
-                "pdf_size": len(pdf_data),
-                "pdf_compiled_at": datetime.utcnow()
+
+    try:
+        job_id = enqueue_task(
+            task_path="app.worker_tasks.process_recompile_resume_pdf",
+            task_kwargs={
+                "user_id": current_user["id"],
+                "resume_id": resume_id,
             },
-            "$unset": {"pdf_data": ""}  # Remove old binary
-        }
+            user_id=current_user["id"],
+            task_type="resume_recompile",
+        )
+    except RedisError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Queue unavailable: {str(exc)}",
+        )
+
+    return TaskAcceptedResponse(
+        job_id=job_id,
+        status="queued",
+        status_message="Resume PDF recompilation queued",
     )
-    
-    return {
-        "message": "PDF recompiled successfully with Docker LaTeX",
-        "pdf_size": len(pdf_data),
-        "pdf_path": str(pdf_path)
-    }
 
 
 @router.get("/{resume_id}/latex")
@@ -337,49 +313,51 @@ async def get_resume_latex(
     )
 
 
-@router.post("/generate", response_model=AgentStatusResponse)
+@router.post(
+    "/generate",
+    response_model=TaskAcceptedResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
 async def generate_resume(
     request: GenerateResumeRequest,
     current_user: dict = Depends(get_current_user)
 ):
-    """Generate a new resume using AI agent"""
+    """Queue resume generation task"""
     try:
-        final_state = await run_agent(
+        job_id = enqueue_task(
+            task_path="app.worker_tasks.process_generate_resume",
+            task_kwargs={
+                "user_id": current_user["id"],
+                "job_description": request.job_description,
+                "instructions": request.instructions,
+            },
             user_id=current_user["id"],
             task_type="resume_generation",
-            job_description=request.job_description,
-            user_instructions=request.instructions
         )
-        
-        if isinstance(final_state, dict) and final_state.get("error"):
-            return AgentStatusResponse(
-                status=AgentStatus.ERROR.value,
-                status_message=final_state.get("status_message", "Error generating resume"),
-                resume_id=None,
-                has_pdf=False
-            )
-        
-        return AgentStatusResponse(
-            status=final_state.get("status", AgentStatus.COMPLETED.value) if isinstance(final_state, dict) else AgentStatus.COMPLETED.value,
-            status_message=final_state.get("status_message", "Resume generated!") if isinstance(final_state, dict) else "Resume generated!",
-            resume_id=final_state.get("resume_id") if isinstance(final_state, dict) else None,
-            has_pdf=final_state.get("latex_code") is not None if isinstance(final_state, dict) else False  # Has PDF if we have LaTeX
-        )
-        
-    except Exception as e:
+    except RedisError as exc:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate resume: {str(e)}"
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Queue unavailable: {str(exc)}",
         )
 
+    return TaskAcceptedResponse(
+        job_id=job_id,
+        status="queued",
+        status_message="Resume generation queued",
+    )
 
-@router.post("/{resume_id}/refine", response_model=AgentStatusResponse)
+
+@router.post(
+    "/{resume_id}/refine",
+    response_model=TaskAcceptedResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
 async def refine_resume(
     resume_id: str,
     request: RefineResumeRequest,
     current_user: dict = Depends(get_current_user)
 ):
-    """Refine an existing resume based on user feedback"""
+    """Queue resume refinement task"""
     resumes_collection = get_collection("resumes")
     
     # Get existing resume
@@ -393,65 +371,29 @@ async def refine_resume(
     
     if not resume.get("latex_code"):
         raise HTTPException(status_code=400, detail="Resume has no LaTeX code to refine")
-    
+
     try:
-        print(f"🔧 Starting refinement for resume {resume_id} with message: {request.message[:50]}...")
-        
-        final_state = await run_agent(
+        job_id = enqueue_task(
+            task_path="app.worker_tasks.process_refine_resume",
+            task_kwargs={
+                "user_id": current_user["id"],
+                "resume_id": resume_id,
+                "message": request.message,
+            },
             user_id=current_user["id"],
             task_type="resume_refinement",
-            user_message=request.message,
-            current_resume_id=resume_id
         )
-        
-        print(f"🔧 Agent result type: {type(final_state)}")
-        print(f"🔧 Agent result keys: {list(final_state.keys()) if isinstance(final_state, dict) else 'Not a dict'}")
-        print(f"🔧 Has error: {final_state.get('error') if isinstance(final_state, dict) else 'N/A'}")
-        
-        # Check for agent errors
-        if final_state and isinstance(final_state, dict) and final_state.get("error"):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Refinement failed: {final_state.get('error', 'Unknown error')}"
-            )
-        
-        # Update the resume with new content if we have LaTeX
-        if final_state and isinstance(final_state, dict) and final_state.get("latex_code"):
-            # Delete old PDF cache to ensure preview shows updated content
-            pdf_path = PDF_STORAGE_DIR / f"{resume_id}.pdf"
-            if pdf_path.exists():
-                pdf_path.unlink()
-                print(f"🗑️ Deleted old PDF cache for resume {resume_id}")
-            
-            new_version = resume.get("version", 1) + 1
-            await resumes_collection.update_one(
-                {"_id": ObjectId(resume_id)},
-                {
-                    "$set": {
-                        "latex_code": final_state["latex_code"],
-                        "pdf_data": final_state.get("pdf_data"),
-                        "version": new_version,
-                        "updated_at": datetime.utcnow()
-                    }
-                }
-            )
-            print(f"✅ Resume updated with new LaTeX")
-        
-        return AgentStatusResponse(
-            status=final_state.get("status", AgentStatus.COMPLETED.value) if isinstance(final_state, dict) else AgentStatus.COMPLETED.value,
-            status_message=final_state.get("status_message", "Resume refined!") if isinstance(final_state, dict) else "Resume refined!",
-            resume_id=resume_id,
-            has_pdf=final_state.get("pdf_data") is not None if isinstance(final_state, dict) else False
-        )
-        
-    except Exception as e:
-        print(f"❌ Exception in refine endpoint: {type(e).__name__}: {str(e)}")
-        import traceback
-        traceback.print_exc()
+    except RedisError as exc:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to refine resume: {str(e)}"
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Queue unavailable: {str(exc)}",
         )
+
+    return TaskAcceptedResponse(
+        job_id=job_id,
+        status="queued",
+        status_message="Resume refinement queued",
+    )
 
 
 @router.delete("/{resume_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -470,10 +412,10 @@ async def delete_resume(
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Resume not found")
     
-    # Delete the cached PDF file to avoid orphaned files
-    pdf_path = PDF_STORAGE_DIR / f"{resume_id}.pdf"
-    if pdf_path.exists():
-        pdf_path.unlink()
-        print(f"🗑️ Deleted PDF file for deleted resume {resume_id}")
+    try:
+        delete_resume_pdf(resume_id)
+        print(f"🗑️ Deleted PDF for resume {resume_id} from S3")
+    except RuntimeError as exc:
+        print(f"⚠️ Failed to delete PDF from S3 for resume {resume_id}: {exc}")
     
     return None

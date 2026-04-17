@@ -308,13 +308,14 @@ async def save_resume(state: AgentState) -> Dict:
         # Update existing resume
         resume_data["updated_at"] = datetime.utcnow()
         
-        # Delete old PDF cache to ensure preview shows updated content
-        from pathlib import Path
-        PDF_STORAGE_DIR = Path(__file__).parent.parent.parent / "storage" / "pdfs"
-        pdf_path = PDF_STORAGE_DIR / f"{current_resume_id}.pdf"
-        if pdf_path.exists():
-            pdf_path.unlink()
-            print(f"🗑️ Deleted old PDF cache for resume {current_resume_id}")
+        # Delete old cached PDF in S3 to ensure preview shows updated content
+        from app.storage import delete_resume_pdf
+
+        try:
+            delete_resume_pdf(current_resume_id)
+            print(f"🗑️ Deleted old S3 PDF cache for resume {current_resume_id}")
+        except RuntimeError as exc:
+            print(f"⚠️ Failed to delete old S3 PDF cache for resume {current_resume_id}: {exc}")
         
         result = await resumes_collection.update_one(
             {"_id": ObjectId(current_resume_id)},

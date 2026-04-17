@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { NewtonLoader } from '@/components/ui/newton-loader'
-import { resumesApi } from '@/lib/api'
+import { resumesApi, waitForTaskCompletion } from '@/lib/api'
 
 interface Message {
   role: 'user' | 'assistant' | 'system'
@@ -51,13 +51,15 @@ function PDFPreview({
     try {
       setRecompiling(true)
       setError(null)
-      await resumesApi.recompile(resumeId)
+      const queuedTask = await resumesApi.recompile(resumeId)
+      await waitForTaskCompletion(queuedTask.data.job_id)
       await loadPDF()
       if (onRecompile) onRecompile()
       if (showSuccessToast) toast.success('Preview recompiled')
-    } catch {
-      setError(GENERIC_ERROR_MESSAGE)
-      toast.error(GENERIC_ERROR_MESSAGE)
+    } catch (error: any) {
+      const message = error?.message || GENERIC_ERROR_MESSAGE
+      setError(message)
+      toast.error(message)
     } finally {
       setRecompiling(false)
     }
@@ -185,17 +187,31 @@ export function CreateResumePage() {
   }
 
   const generateMutation = useMutation({
-    mutationFn: (data: { job_description: string; instructions?: string }) => resumesApi.generate(data),
+    mutationFn: async (data: { job_description: string; instructions?: string }) => {
+      const queuedTask = await resumesApi.generate(data)
+      return waitForTaskCompletion<{
+        status: string
+        status_message: string
+        resume_id?: string
+        has_pdf?: boolean
+      }>(queuedTask.data.job_id, {
+        onStatusChange: (queueStatus, queueMessage) => {
+          setPageStatus({
+            tone: queueStatus === 'failed' ? 'error' : 'working',
+            message: queueMessage || 'Generating resume...',
+          })
+        },
+      })
+    },
     onMutate: () => {
       setPageStatus({
         tone: 'working',
         message: 'Starting resume generation...',
       })
     },
-    onSuccess: (response) => {
-      const data = response.data
-      setResumeId(data.resume_id)
-      setHasPdf(data.has_pdf)
+    onSuccess: (data) => {
+      setResumeId(data.resume_id ?? null)
+      setHasPdf(!!data.has_pdf)
       setAutoRecompileTrigger((prev) => prev + 1)
       setPageStatus({
         tone: 'success',
@@ -211,26 +227,41 @@ export function CreateResumePage() {
       toast.success('Resume generated!')
       if (data.resume_id) fetchResumeDetails(data.resume_id)
     },
-    onError: () => {
+    onError: (error: any) => {
+      const message = error?.message || GENERIC_ERROR_MESSAGE
       setPageStatus({
         tone: 'error',
-        message: GENERIC_ERROR_MESSAGE,
+        message,
       })
-      toast.error(GENERIC_ERROR_MESSAGE)
+      toast.error(message)
     },
   })
 
   const refineMutation = useMutation({
-    mutationFn: (message: string) => resumesApi.refine(resumeId!, { message }),
+    mutationFn: async (message: string) => {
+      const queuedTask = await resumesApi.refine(resumeId!, { message })
+      return waitForTaskCompletion<{
+        status: string
+        status_message: string
+        resume_id?: string
+        has_pdf?: boolean
+      }>(queuedTask.data.job_id, {
+        onStatusChange: (queueStatus, queueMessage) => {
+          setPageStatus({
+            tone: queueStatus === 'failed' ? 'error' : 'working',
+            message: queueMessage || 'Applying your requested changes...',
+          })
+        },
+      })
+    },
     onMutate: () => {
       setPageStatus({
         tone: 'working',
         message: 'Applying your requested changes...',
       })
     },
-    onSuccess: (response) => {
-      const data = response.data
-      setHasPdf(data.has_pdf)
+    onSuccess: (data) => {
+      setHasPdf(!!data.has_pdf)
       setAutoRecompileTrigger((prev) => prev + 1)
       setPageStatus({
         tone: 'success',
@@ -243,12 +274,13 @@ export function CreateResumePage() {
       toast.success('Resume updated!')
       if (resumeId) fetchResumeDetails(resumeId)
     },
-    onError: () => {
+    onError: (error: any) => {
+      const message = error?.message || GENERIC_ERROR_MESSAGE
       setPageStatus({
         tone: 'error',
-        message: GENERIC_ERROR_MESSAGE,
+        message,
       })
-      toast.error(GENERIC_ERROR_MESSAGE)
+      toast.error(message)
       setMessages((prev) => [...prev, { role: 'assistant', content: 'Could not apply those changes. Please rephrase and retry.' }])
     },
   })
@@ -349,9 +381,9 @@ export function CreateResumePage() {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
-      className="resume-builder-grid h-[calc(100vh-8rem)]"
+      className="resume-builder-grid h-[calc(100vh-8rem)] overflow-hidden"
     >
-      <Card className="builder-card flex h-full flex-col">
+      <Card className="builder-card flex h-full min-h-0 flex-col overflow-hidden">
         <CardHeader className="builder-header">
           <CardTitle className="flex items-center gap-2 text-[#171717]">
             {isEditMode ? 'Edit Resume' : 'Generate Resume'}
@@ -422,7 +454,7 @@ export function CreateResumePage() {
             </>
           ) : (
             <>
-              <div className="builder-chat-shell flex-1">
+              <div className="builder-chat-shell flex-1 min-h-0">
                 <div className="builder-chat">
                   {messages.map((msg, idx) => (
                     <div key={idx} className={`builder-message ${msg.role}`}>
@@ -490,7 +522,7 @@ export function CreateResumePage() {
         </CardContent>
       </Card>
 
-      <Card className="builder-card flex h-full flex-col overflow-hidden">
+      <Card className="builder-card flex h-full min-h-0 flex-col overflow-hidden">
         <CardHeader className="builder-header">
           <CardTitle className="flex items-center gap-2 text-[#171717]">
             <FileText className="h-5 w-5 text-[#0a72ef]" />

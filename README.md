@@ -36,6 +36,7 @@ A full-stack web application that generates professional, ATS-optimized resumes 
 
 ### Advanced Features
 
+- Redis-backed background queue for long-running AI/PDF tasks
 - Real-time Agent Status Updates (WebSocket)
 - Email notifications for password resets
 - Multi-format support (LaTeX, PDF)
@@ -61,6 +62,7 @@ A full-stack web application that generates professional, ATS-optimized resumes 
 - **FastAPI** - Web framework
 - **Python 3.9** - Language
 - **MongoDB** - Database
+- **Redis + RQ** - Background queue for long-running tasks
 - **LangGraph** - Multi-agent orchestration
 - **Claude AI** - Resume generation
 - **GoogleGenerativeAI** - Alternative AI backend
@@ -115,6 +117,7 @@ resumeMaker/
 │   │   │   ├── profile.py       # Profile management
 │   │   │   ├── projects.py      # Projects management
 │   │   │   ├── jobs.py          # Job search
+│   │   │   ├── tasks.py         # Queue task status endpoint
 │   │   │   └── websocket.py     # WebSocket for status
 │   │   ├── models/              # Pydantic schemas
 │   │   ├── auth/                # Authentication
@@ -122,10 +125,13 @@ resumeMaker/
 │   │   │   └── email_service.py # Email sending
 │   │   ├── database.py          # MongoDB connection
 │   │   ├── config.py            # Configuration
-│   │   └── main.py              # App entry point
-│   ├── storage/
-│   │   └── pdfs/                # Generated PDFs
-│   ├── requirements.txt          # Python dependencies
+│   │   ├── task_queue.py        # Redis/RQ enqueue helpers
+│   │   ├── worker_tasks.py      # Background task implementations
+│   │   ├── main.py              # App entry point
+│   │   └── storage/             # Storage integrations
+│   │       ├── __init__.py
+│   │       └── s3_pdf_storage.py # Resume PDF storage in S3
+│   ├── requirements.txt         # Python dependencies
 │   └── Dockerfile
 │
 ├── docker-compose.yml           # Service orchestration
@@ -141,8 +147,10 @@ resumeMaker/
 - **Node.js** 18+ and npm/yarn
 - **Python** 3.9+
 - **MongoDB** (local or Atlas)
+- **Redis** (for background task queue)
 - **Docker** (for LaTeX compilation)
 - **Auth0 Account** (for OAuth)
+- **AWS credentials** with access to an S3 bucket (for PDF storage)
 - **Google Cloud API Keys** (for optional Gemini AI)
 
 ### 1. Clone Repository
@@ -198,6 +206,20 @@ SERPAPI_API_KEY=your-serpapi-key
 # Frontend URL
 FRONTEND_URL=http://localhost:5173
 
+# Queue (Redis)
+REDIS_URL=redis://localhost:6379/0
+# Hosted Redis example:
+# REDIS_URL=redis://default:your-password@your-host:15851/0
+
+# AWS S3 (Resume PDFs)
+AWS_REGION=ap-south-1
+AWS_S3_BUCKET_NAME=nik-resum-ai
+AWS_ACCESS_KEY_ID=your-access-key-id
+AWS_SECRET_ACCESS_KEY=your-secret-access-key
+# Optional for temporary credentials / custom endpoints
+# AWS_SESSION_TOKEN=your-session-token
+# AWS_S3_ENDPOINT_URL=http://localhost:4566
+
 # Environment
 ENVIRONMENT=development
 EOF
@@ -205,6 +227,11 @@ EOF
 # Verify MongoDB is running
 # If using local: brew services start mongodb-community
 # If using Atlas: Make sure MONGODB_URI points to your cluster
+
+# Verify Redis is running
+# macOS (Homebrew): brew services start redis
+# Check: redis-cli ping  # should return PONG
+# If using hosted Redis: verify URL/credentials and outbound network access
 ```
 
 ### 3. Frontend Setup
@@ -365,11 +392,17 @@ cd backend
 source venv/bin/activate
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
-# Terminal 2 - Start Frontend
+# Terminal 2 - Start Queue Worker
+cd backend
+source venv/bin/activate
+set -a; source .env; set +a
+rq worker -w rq.worker.SimpleWorker --url "$REDIS_URL" long_running_tasks
+
+# Terminal 3 - Start Frontend
 cd frontend
 npm run dev
 
-# Terminal 3 - Docker LaTeX (keep running)
+# Terminal 4 - Docker LaTeX (keep running)
 docker run -d -p 8080:8080 texlive/texlive:latest
 
 # Access: http://localhost:5173
@@ -400,6 +433,41 @@ npm run preview
 cd backend
 pip install gunicorn
 gunicorn app.main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker
+
+# Queue worker (separate process)
+set -a; source .env; set +a
+rq worker -w rq.worker.SimpleWorker --url "$REDIS_URL" long_running_tasks
+```
+
+---
+
+## 🧵 Queue System (Current)
+
+Long-running operations are handled asynchronously using **Redis + RQ**:
+
+1. API endpoint receives request and enqueues an RQ job.
+2. API responds immediately with `202 Accepted` and a `job_id`.
+3. Frontend polls `GET /api/tasks/{job_id}`.
+4. Worker executes job and stores result in Redis.
+5. Task endpoint returns `completed` (with `result`) or `failed` (with `error`).
+
+### Queued Endpoints
+
+- `POST /api/resumes/generate`
+- `POST /api/resumes/{resume_id}/refine`
+- `POST /api/resumes/{resume_id}/recompile`
+- `POST /api/jobs/search`
+- `POST /api/jobs/{job_id}/generate-resume`
+
+### Worker Command
+
+Use `SimpleWorker` (current stable setup for this project):
+
+```bash
+cd backend
+source venv/bin/activate
+set -a; source .env; set +a
+rq worker -w rq.worker.SimpleWorker --url "$REDIS_URL" long_running_tasks
 ```
 
 ---
@@ -454,14 +522,14 @@ Response: `{ "message": "OTP sent to email" }`
 **List all user resumes** (Protected)
 
 #### `POST /api/resumes/generate`
-**Generate new resume with AI**
+**Queue new resume generation task**
 ```json
 {
   "job_description": "Senior Developer at XYZ...",
   "instructions": "Optional: Focus on leadership"
 }
 ```
-Response: Streams agent status updates via WebSocket, returns `{ "resume_id": "...", "ats_score": 95 }`
+Response: `{ "job_id": "rq_job_id", "status": "queued", "status_message": "Resume generation queued" }`
 
 #### `GET /api/resumes/{resume_id}`
 **Get resume details** (Protected)
@@ -473,12 +541,33 @@ Response: Streams agent status updates via WebSocket, returns `{ "resume_id": ".
 **Get LaTeX source** (Protected)
 
 #### `POST /api/resumes/{resume_id}/refine`
-**Refine existing resume with AI**
+**Queue resume refinement task**
 ```json
 {
   "message": "Add more emphasis on cloud technologies"
 }
 ```
+Response: `{ "job_id": "rq_job_id", "status": "queued", "status_message": "Resume refinement queued" }`
+
+#### `POST /api/resumes/{resume_id}/recompile`
+**Queue PDF recompile task**
+Response: `{ "job_id": "rq_job_id", "status": "queued", "status_message": "Resume PDF recompilation queued" }`
+
+### Task Status Endpoint
+
+#### `GET /api/tasks/{job_id}`
+**Get queue task status/result** (Protected)
+```json
+{
+  "job_id": "rq_job_id",
+  "task_type": "resume_generation",
+  "status": "in_progress",
+  "status_message": "Task is running",
+  "result": null,
+  "error": null
+}
+```
+Possible `status` values: `queued`, `in_progress`, `completed`, `failed`.
 
 #### `DELETE /api/resumes/{resume_id}`
 **Delete resume** (Protected)
@@ -542,38 +631,29 @@ Response: Streams agent status updates via WebSocket, returns `{ "resume_id": ".
 
 ### Job Search Endpoints
 
-#### `GET /api/jobs/search?q=Python&location=remote`
-**Search for jobs** (Protected)
-
-Query Parameters:
-- `q` - Search query (job title, keywords)
-- `location` - Job location
-- `remote_only` - Filter remote jobs (true/false)
-- `page` - Page number (default: 1)
-
-Response:
+#### `POST /api/jobs/search`
+**Queue job search task** (Protected)
 ```json
 {
-  "jobs": [
-    {
-      "id": "job_123",
-      "title": "Senior Python Developer",
-      "company": "TechCorp",
-      "location": "San Francisco, CA",
-      "description": "...",
-      "salary": "$150K-180K",
-      "url": "https://..."
-    }
-  ],
-  "total": 250,
-  "page": 1
+  "query": "Python developer remote"
 }
 ```
 
+Response: `{ "job_id": "rq_job_id", "status": "queued", "status_message": "Job search queued" }`
+
+#### `POST /api/jobs/{job_id}/generate-resume`
+**Queue tailored resume generation for a saved job** (Protected)
+Response: `{ "job_id": "rq_job_id", "status": "queued", "status_message": "Resume generation for job queued" }`
+
 ### WebSocket Endpoints
 
-#### `WS /ws?token={jwt_token}`
+> Queue-based API requests use polling via `/api/tasks/{job_id}`. WebSocket is optional for direct live agent sessions.
+
+#### `WS /ws/agent/{user_id}?session_id={optional}`
 **Real-time agent status updates**
+
+#### `WS /ws/status`
+**General system status stream**
 
 Messages received during resume generation:
 ```json
@@ -1054,8 +1134,8 @@ The agent has access to these tools:
 
 #### WebSocket not connecting
 - Verify backend running on `http://localhost:8000`
-- Check: WebSocket URL is `ws://localhost:8000/ws`
-- Verify JWT token in query string
+- Check: WebSocket URL is `ws://localhost:8000/ws/agent/{user_id}`
+- Optional query: `?session_id=...`
 
 ### Backend Issues
 
@@ -1076,6 +1156,35 @@ MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/database
 ```bash
 # Check routes are registered in main.py
 python -c "from app.main import app; print([r.path for r in app.routes])"
+```
+
+#### Queue worker can't connect to Redis
+```bash
+ERROR:root:Error 61 connecting to localhost:6379. Connection refused.
+```
+Solution:
+```bash
+# If local Redis
+brew services start redis
+redis-cli ping  # expect PONG
+
+# If hosted Redis
+set -a; source .env; set +a
+echo "$REDIS_URL"
+```
+
+#### Queue jobs fail with work-horse terminated unexpectedly (signal 11)
+Use SimpleWorker instead of default forking worker:
+```bash
+rq worker -w rq.worker.SimpleWorker --url "$REDIS_URL" long_running_tasks
+```
+
+#### Queue jobs fail with `RuntimeError: Event loop is closed`
+- Ensure worker uses latest code (`app/worker_tasks.py`) with per-job DB reconnect.
+- Restart worker after pulling new code:
+```bash
+# Stop current worker (Ctrl+C), then start again
+rq worker -w rq.worker.SimpleWorker --url "$REDIS_URL" long_running_tasks
 ```
 
 #### PDF compilation fails

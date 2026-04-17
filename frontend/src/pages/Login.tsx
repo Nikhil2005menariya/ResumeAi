@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAuth0 } from '@auth0/auth0-react'
 import toast from 'react-hot-toast'
-import { Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react'
+import { Mail, Lock, User, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react'
 import Lottie from 'lottie-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -118,7 +118,15 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen px-4 py-10">
+    <div className="relative min-h-screen px-4 py-10">
+      <Link
+        to="/"
+        className="absolute left-6 top-6 inline-flex items-center gap-2 text-sm text-slate-500 transition-colors hover:text-slate-900"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back
+      </Link>
+
       <div className="mx-auto grid w-full max-w-6xl items-center gap-8 lg:grid-cols-2">
         <div className="hidden lg:block">
           <div className="glass-card rounded-3xl p-6">

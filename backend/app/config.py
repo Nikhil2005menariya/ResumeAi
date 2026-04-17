@@ -35,6 +35,19 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:5173"
     backend_url: str = "http://localhost:8000"
 
+    # Queue / Redis
+    redis_url: str = "redis://localhost:6379/0"
+    queue_job_timeout_seconds: int = 1200
+    queue_result_ttl_seconds: int = 3600
+
+    # AWS S3 (resume PDF storage)
+    aws_region: str = "ap-south-1"
+    aws_s3_bucket_name: str = ""
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    aws_session_token: str = ""
+    aws_s3_endpoint_url: str = ""
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

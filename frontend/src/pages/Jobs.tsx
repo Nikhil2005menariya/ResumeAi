@@ -15,7 +15,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { jobsApi } from '@/lib/api'
+import { jobsApi, waitForTaskCompletion } from '@/lib/api'
 import { formatRelativeTime, truncate } from '@/lib/utils'
 
 interface Job {
@@ -48,25 +48,32 @@ export function JobsPage() {
   })
 
   const searchMutation = useMutation({
-    mutationFn: (query: string) => jobsApi.search({ query }),
+    mutationFn: async (query: string) => {
+      const queuedTask = await jobsApi.search({ query })
+      return waitForTaskCompletion<{
+        status: string
+        status_message: string
+        jobs: Job[]
+      }>(queuedTask.data.job_id)
+    },
     onMutate: () => {
       setSearchFeedback({
         status: 'searching',
         message: 'Finding the best-suited jobs for you...',
       })
     },
-    onSuccess: (response) => {
-      const status = response.data.status || 'completed'
-      const statusMessage = response.data.status_message || `Found ${response.data.jobs.length} jobs`
+    onSuccess: (data) => {
+      const status = data.status || 'completed'
+      const statusMessage = data.status_message || `Found ${data.jobs.length} jobs`
       setSearchFeedback({
         status: status === 'error' ? 'error' : 'completed',
         message: statusMessage,
       })
       queryClient.invalidateQueries({ queryKey: ['saved-jobs'] })
-      toast.success(`Found ${response.data.jobs.length} matching jobs!`)
+      toast.success(`Found ${data.jobs.length} matching jobs!`)
     },
     onError: (error: any) => {
-      const message = error.response?.data?.detail || 'Search failed'
+      const message = error?.message || error.response?.data?.detail || 'Search failed'
       setSearchFeedback({
         status: 'error',
         message,
@@ -76,13 +83,19 @@ export function JobsPage() {
   })
 
   const generateResumeMutation = useMutation({
-    mutationFn: (jobId: string) => jobsApi.generateResumeForJob(jobId),
-    onSuccess: (response) => {
+    mutationFn: async (jobId: string) => {
+      const queuedTask = await jobsApi.generateResumeForJob(jobId)
+      return waitForTaskCompletion<{
+        status: string
+        status_message: string
+      }>(queuedTask.data.job_id)
+    },
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['saved-jobs'] })
-      toast.success(response.data?.status_message || 'Resume generated for this job!')
+      toast.success(data?.status_message || 'Resume generated for this job!')
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.detail || 'Failed to generate resume')
+      toast.error(error?.message || error.response?.data?.detail || 'Failed to generate resume')
     },
   })
 
@@ -95,7 +108,7 @@ export function JobsPage() {
     searchMutation.mutate(searchQuery)
   }
 
-  const searchResults = searchMutation.data?.data?.jobs || []
+  const searchResults = searchMutation.data?.jobs || []
 
   return (
     <div className="page-wrap space-y-5">
