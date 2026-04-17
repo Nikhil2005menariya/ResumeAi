@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import Lottie from 'lottie-react';
-import { Sparkles, Target, Zap, Menu, X, ArrowRight, CheckCircle2, CarFront } from 'lucide-react';
+import { Sparkles, Target, Zap, Menu, X, CheckCircle2 } from 'lucide-react';
 import heroAnimation from '@/assets/animations/hero.json';
 import { Brand } from '@/components/Brand';
+import { SpotlightButton } from '@/components/ui/spotlight-button';
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -23,13 +24,12 @@ export default function Landing() {
             >
               Sign In
             </button>
-            <button 
+            <SpotlightButton
               onClick={() => navigate('/login?mode=signup')}
-              className="btn-liquid btn-runway cursor-pointer rounded-xl bg-gradient-to-r from-blue-600 to-indigo-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-200 transition-all duration-200 hover:brightness-105"
+              className="w-[160px] bg-slate-900 px-4 py-2.5 text-sm"
             >
               Get Started
-              <CarFront aria-hidden="true" className="btn-runner h-4 w-4" />
-            </button>
+            </SpotlightButton>
           </div>
 
           <button 
@@ -60,7 +60,7 @@ export default function Landing() {
                 navigate('/login?mode=signup');
                 setMobileMenuOpen(false);
               }}
-              className="btn-liquid block w-full cursor-pointer rounded-xl bg-gradient-to-r from-blue-600 to-indigo-500 px-6 py-2.5 text-center text-sm font-semibold text-white"
+              className="block w-full cursor-pointer rounded-xl bg-gradient-to-r from-blue-600 to-indigo-500 px-6 py-2.5 text-center text-sm font-semibold text-white"
             >
               Get Started
             </button>
@@ -105,20 +105,18 @@ export default function Landing() {
             transition={{ duration: 0.5, delay: 0.16 }}
             className="flex flex-col gap-3 sm:flex-row"
           >
-            <button 
+            <SpotlightButton
               onClick={() => navigate('/login?mode=signup')}
-              className="btn-liquid btn-runway inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-500 px-7 py-3.5 text-base font-semibold text-white shadow-lg shadow-blue-200 transition-all duration-200 hover:brightness-105"
+              className="sm:max-w-[170px] bg-slate-900 py-2.5 text-sm"
             >
               Start Building
-              <ArrowRight className="h-4 w-4" />
-              <CarFront aria-hidden="true" className="btn-runner h-4 w-4" />
-            </button>
-            <button 
+            </SpotlightButton>
+            <SpotlightButton
               onClick={() => navigate('/login')}
-              className="cursor-pointer rounded-xl border border-slate-200 bg-white px-7 py-3.5 text-base font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+              className="sm:max-w-[170px] bg-slate-900"
             >
               Sign In
-            </button>
+            </SpotlightButton>
           </motion.div>
 
           <div className="grid gap-2 pt-1 text-sm text-slate-600 md:grid-cols-2">
@@ -212,11 +210,9 @@ export default function Landing() {
             viewport={{ once: true }}
             transition={{ delay: 0.2 }}
             onClick={() => navigate('/login?mode=signup')}
-            className="btn-liquid btn-runway inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-500 px-8 py-3 text-base font-semibold text-white shadow-lg shadow-blue-200 transition-all duration-200 hover:brightness-105"
+            className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-500 px-8 py-3 text-base font-semibold text-white shadow-lg shadow-blue-200 transition-all duration-200 hover:brightness-105"
           >
             Create Your Resume
-            <ArrowRight className="h-4 w-4" />
-            <CarFront aria-hidden="true" className="btn-runner h-4 w-4" />
           </motion.button>
         </div>
       </section>

@@ -14,6 +14,7 @@ import { authApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store'
 import authAnimation from '@/assets/animations/auth.json'
 import { Brand } from '@/components/Brand'
+import { SpotlightButton } from '@/components/ui/spotlight-button'
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -185,12 +186,12 @@ export function LoginPage() {
                   </Link>
                 </div>
                 
-                <Button type="submit" className="btn-liquid btn-runway w-full" disabled={isLoading}>
-                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Sign In
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                  <CarFront aria-hidden="true" className="btn-runner h-4 w-4" />
-                </Button>
+                <SpotlightButton
+                  type="submit"
+                  className="w-full bg-slate-900 py-2.5 text-sm"
+                >
+                  {isLoading ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : 'Sign In'}
+                </SpotlightButton>
               </form>
             )}
 
