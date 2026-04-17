@@ -5,18 +5,21 @@ import { Brand } from '@/components/Brand'
 
 export function DashboardLayout() {
   return (
-    <div className="flex h-screen bg-transparent">
+    <div className="dashboard-shell flex h-screen overflow-hidden bg-[#fafafa]">
       <Sidebar />
 
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="mx-4 mt-4 flex h-20 items-center justify-between rounded-3xl border border-white/60 bg-white/75 px-6 backdrop-blur-xl">
-          <Brand size="sm" />
-          <div className="flex items-center gap-3">
-            <AgentStatus />
+      <div className="flex min-w-0 flex-1 flex-col p-4 pt-3">
+        <header className="dashboard-topbar flex h-16 items-center justify-between rounded-2xl px-4 sm:px-5">
+          <div className="flex items-center gap-3 lg:hidden">
+            <Brand size="sm" />
           </div>
+          <div className="hidden lg:block">
+            <p className="dashboard-kicker">Workspace</p>
+          </div>
+          <AgentStatus />
         </header>
 
-        <main className="flex-1 overflow-auto px-4 pb-4 pt-4">
+        <main className="mt-4 flex-1 overflow-auto rounded-2xl">
           <Outlet />
         </main>
       </div>

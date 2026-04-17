@@ -54,16 +54,16 @@ export function ResumesPage() {
   }
 
   return (
-    <div className="page-wrap space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="page-wrap space-y-6 pr-2">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-900">My Resumes</h1>
           <p className="mt-1 text-slate-600">
             View and download your AI-generated resumes
           </p>
         </div>
-        <Link to="/app/create-resume">
-          <Button className="gap-2">
+        <Link to="/app/create-resume" className="shrink-0">
+          <Button className="dashboard-btn-dark h-10 gap-2 rounded-md px-4">
             <Plus className="h-4 w-4" />
             Generate New Resume
           </Button>
@@ -144,7 +144,7 @@ export function ResumesPage() {
               Generate your first AI-powered resume
             </p>
             <Link to="/app/create-resume">
-              <Button className="mt-4 gap-2">
+              <Button className="dashboard-btn-dark mt-4 h-10 gap-2 rounded-md px-4">
                 <Plus className="h-4 w-4" />
                 Generate Resume
               </Button>

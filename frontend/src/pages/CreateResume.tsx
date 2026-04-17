@@ -1,12 +1,14 @@
-import { useState, useEffect } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
-import { Sparkles, FileText, Send, Loader2, Download, RefreshCw } from 'lucide-react'
+import { Download, FileText, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { NewtonLoader } from '@/components/ui/newton-loader'
 import { resumesApi } from '@/lib/api'
 import { useAgentStore } from '@/lib/store'
 
@@ -15,7 +17,6 @@ interface Message {
   content: string
 }
 
-// PDF Preview Component with Recompile option
 function PDFPreview({ resumeId, onRecompile }: { resumeId: string; onRecompile?: () => void }) {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -26,23 +27,11 @@ function PDFPreview({ resumeId, onRecompile }: { resumeId: string; onRecompile?:
     try {
       setLoading(true)
       setError(null)
-      
-      // Get PDF blob from API (this triggers Docker LaTeX compilation)
-      console.log('Loading PDF preview for resume:', resumeId)
       const response = await resumesApi.getPreview(resumeId)
       const blob = new Blob([response.data], { type: 'application/pdf' })
-      
-      // Check if PDF is valid size (Docker LaTeX produces 20KB+)
-      if (blob.size < 10000) {
-        console.warn('PDF size too small:', blob.size, 'bytes - may be invalid')
-      } else {
-        console.log('PDF loaded successfully:', blob.size, 'bytes')
-      }
-      
       const url = URL.createObjectURL(blob)
       setPdfUrl(url)
     } catch (err: any) {
-      console.error('Failed to load PDF:', err)
       setError(err?.response?.data?.detail || 'Failed to load PDF preview')
     } finally {
       setLoading(false)
@@ -53,14 +42,13 @@ function PDFPreview({ resumeId, onRecompile }: { resumeId: string; onRecompile?:
     try {
       setRecompiling(true)
       setError(null)
-      console.log('Force recompiling PDF with Docker LaTeX...')
       await resumesApi.recompile(resumeId)
-      // Reload the preview after recompile
       await loadPDF()
       if (onRecompile) onRecompile()
+      toast.success('Preview recompiled')
     } catch (err: any) {
-      console.error('Recompile failed:', err)
       setError(err?.response?.data?.detail || 'Failed to recompile PDF')
+      toast.error(err?.response?.data?.detail || 'Failed to recompile PDF')
     } finally {
       setRecompiling(false)
     }
@@ -68,68 +56,51 @@ function PDFPreview({ resumeId, onRecompile }: { resumeId: string; onRecompile?:
 
   useEffect(() => {
     loadPDF()
-
-    // Cleanup URL when component unmounts
     return () => {
-      if (pdfUrl) {
-        URL.revokeObjectURL(pdfUrl)
-      }
+      if (pdfUrl) URL.revokeObjectURL(pdfUrl)
     }
   }, [resumeId])
 
-  if (loading || recompiling) {
-    return (
-      <div className="w-full flex-1 border border-gray-200 rounded flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-blue-500" />
-          <p className="text-sm text-gray-600">
-            {recompiling ? 'Recompiling PDF with Docker LaTeX...' : 'Compiling PDF with Docker LaTeX...'}
-          </p>
-          <p className="text-xs text-gray-400 mt-1">This may take 10-20 seconds</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="w-full flex-1 border border-gray-200 rounded flex items-center justify-center bg-red-50">
-          <div className="text-center p-4">
-            <FileText className="h-8 w-8 mx-auto mb-2 text-red-500" />
-            <p className="text-sm text-red-600 mb-3">{error}</p>
-          <Button onClick={handleRecompile} size="sm" variant="outline">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Retry Compilation
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
-  if (!pdfUrl) {
-    return (
-      <div className="w-full flex-1 border border-gray-200 rounded flex items-center justify-center">
-        <div className="text-center text-gray-500">
-          <FileText className="h-8 w-8 mx-auto mb-2" />
-          <p className="text-sm">No PDF available</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="w-full flex-1 flex flex-col">
-      <div className="flex justify-end mb-2">
-        <Button onClick={handleRecompile} size="sm" variant="ghost" disabled={recompiling}>
-          <RefreshCw className={`h-4 w-4 mr-1 ${recompiling ? 'animate-spin' : ''}`} />
-          Recompile
+    <div className="preview-frame flex h-full flex-col">
+      <div className="preview-toolbar">
+        <p className="preview-toolbar-label">Live Preview</p>
+        <Button
+          onClick={handleRecompile}
+          size="sm"
+          variant="ghost"
+          disabled={recompiling}
+          className="preview-recompile-btn"
+        >
+          {recompiling ? <NewtonLoader size="sm" /> : <RefreshCw className="h-4 w-4" />}
+          <span>{recompiling ? 'Recompiling' : 'Recompile'}</span>
         </Button>
       </div>
-      <iframe
-        src={pdfUrl}
-        className="w-full flex-1 border border-gray-200 rounded min-h-[600px]"
-        title="Resume Preview"
-      />
+
+      <div className="preview-canvas flex-1">
+        {loading || recompiling ? (
+          <div className="preview-state">
+            <NewtonLoader size="lg" />
+            <p className="preview-state-title">{recompiling ? 'Recompiling PDF' : 'Compiling PDF'}</p>
+            <p className="preview-state-subtitle">Running LaTeX build for final preview output.</p>
+          </div>
+        ) : error ? (
+          <div className="preview-state">
+            <FileText className="h-10 w-10 text-red-400" />
+            <p className="preview-state-title text-red-600">{error}</p>
+            <Button onClick={handleRecompile} size="sm" variant="outline" className="mt-2">
+              Retry Compilation
+            </Button>
+          </div>
+        ) : !pdfUrl ? (
+          <div className="preview-state">
+            <FileText className="h-10 w-10 text-slate-300" />
+            <p className="preview-state-title">No PDF available</p>
+          </div>
+        ) : (
+          <iframe src={pdfUrl} className="h-full w-full rounded-b-xl border-0" title="Resume Preview" />
+        )}
+      </div>
     </div>
   )
 }
@@ -138,7 +109,7 @@ export function CreateResumePage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const editResumeId = searchParams.get('edit')
-  
+
   const { setStatus, resetStatus } = useAgentStore()
   const [jobDescription, setJobDescription] = useState('')
   const [instructions, setInstructions] = useState('')
@@ -148,44 +119,32 @@ export function CreateResumePage() {
   const [hasPdf, setHasPdf] = useState(false)
   const [isLoadingResume, setIsLoadingResume] = useState(false)
 
-  // Load existing resume when in edit mode
   useEffect(() => {
-    if (editResumeId) {
-      loadExistingResume(editResumeId)
-    }
+    if (editResumeId) loadExistingResume(editResumeId)
   }, [editResumeId])
 
   const loadExistingResume = async (id: string) => {
     try {
       setIsLoadingResume(true)
-      console.log('Loading existing resume:', id)
-      
       const response = await resumesApi.get(id)
       const resume = response.data
-      
-      console.log('Resume loaded:', resume)
-      
-      // Set resume ID to trigger preview
+
       setResumeId(id)
-      
-      // Pre-fill job description if available
-      if (resume.job_description) {
-        setJobDescription(resume.job_description)
-      }
-      
-      setHasPdf(resume.has_pdf || true) // Assume PDF exists for edit mode
-      
-      // Add welcome message for edit mode
-      setMessages([{
-        role: 'assistant',
-        content: `Loaded resume: **${resume.title}**\n\nThe PDF preview is loading on the right. You can:\n- View and download the PDF\n- Make changes using the chat below\n- Update the job description and regenerate`
-      }])
-      
+      if (resume.job_description) setJobDescription(resume.job_description)
+      setHasPdf(resume.has_pdf || true)
+
+      setMessages([
+        {
+          role: 'assistant',
+          content:
+            `Loaded resume: **${resume.title}**\n\n` +
+            `The preview on the right is live.\n` +
+            `You can ask for edits below and recompile anytime.`,
+        },
+      ])
       toast.success('Resume loaded for editing')
     } catch (error: any) {
-      console.error('Failed to load resume:', error)
       toast.error(error.response?.data?.detail || 'Resume not found. You can create a new one.')
-      // Clear edit mode params - allow creating new resume
       navigate('/app/create-resume', { replace: true })
     } finally {
       setIsLoadingResume(false)
@@ -193,26 +152,22 @@ export function CreateResumePage() {
   }
 
   const generateMutation = useMutation({
-    mutationFn: (data: { job_description: string; instructions?: string }) =>
-      resumesApi.generate(data),
-    onMutate: () => {
-      setStatus({ status: 'planning', message: 'Starting resume generation...', progress: 10 })
-    },
+    mutationFn: (data: { job_description: string; instructions?: string }) => resumesApi.generate(data),
+    onMutate: () => setStatus({ status: 'planning', message: 'Starting resume generation...', progress: 10 }),
     onSuccess: (response) => {
       const data = response.data
       setResumeId(data.resume_id)
       setHasPdf(data.has_pdf)
       setStatus({ status: 'completed', message: 'Resume generated!', progress: 100 })
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: `Resume generated successfully. ${data.has_pdf ? 'PDF is ready for download.' : 'LaTeX code is available.'}\n\nWould you like to make any changes?`
-      }])
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: `Resume generated successfully. ${data.has_pdf ? 'PDF preview is ready.' : 'LaTeX output is available.'}`,
+        },
+      ])
       toast.success('Resume generated!')
-      
-      // Fetch the resume details
-      if (data.resume_id) {
-        fetchResumeDetails(data.resume_id)
-      }
+      if (data.resume_id) fetchResumeDetails(data.resume_id)
     },
     onError: (error: any) => {
       setStatus({ status: 'error', message: 'Generation failed', progress: 0 })
@@ -221,32 +176,23 @@ export function CreateResumePage() {
   })
 
   const refineMutation = useMutation({
-    mutationFn: (message: string) =>
-      resumesApi.refine(resumeId!, { message }),
-    onMutate: () => {
-      setStatus({ status: 'refining', message: 'Applying changes...', progress: 50 })
-    },
+    mutationFn: (message: string) => resumesApi.refine(resumeId!, { message }),
+    onMutate: () => setStatus({ status: 'refining', message: 'Applying changes...', progress: 50 }),
     onSuccess: (response) => {
       const data = response.data
       setHasPdf(data.has_pdf)
       setStatus({ status: 'completed', message: 'Changes applied!', progress: 100 })
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: 'Changes applied. The resume has been updated. Would you like to make any other changes?'
-      }])
+      setMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: 'Changes applied. Preview and exports are updated.' },
+      ])
       toast.success('Resume updated!')
-      
-      if (resumeId) {
-        fetchResumeDetails(resumeId)
-      }
+      if (resumeId) fetchResumeDetails(resumeId)
     },
     onError: (error: any) => {
       setStatus({ status: 'error', message: 'Refinement failed', progress: 0 })
       toast.error(error.response?.data?.detail || 'Failed to refine resume')
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: 'I could not apply those changes. Please try rephrasing your request.'
-      }])
+      setMessages((prev) => [...prev, { role: 'assistant', content: 'Could not apply those changes. Please rephrase and retry.' }])
     },
   })
 
@@ -254,10 +200,9 @@ export function CreateResumePage() {
     try {
       const response = await resumesApi.get(id)
       setHasPdf(response.data.has_pdf || false)
-      // Set the resume ID so the preview component works
       setResumeId(id)
-    } catch (error) {
-      console.error('Failed to fetch resume details:', error)
+    } catch {
+      toast.error('Failed to refresh resume details')
     }
   }
 
@@ -267,10 +212,12 @@ export function CreateResumePage() {
       return
     }
 
-    setMessages([{
-      role: 'user',
-      content: `Generate a resume for:\n\n${jobDescription}${instructions ? `\n\nInstructions: ${instructions}` : ''}`
-    }])
+    setMessages([
+      {
+        role: 'user',
+        content: `Generate a resume for:\n\n${jobDescription}${instructions ? `\n\nInstructions: ${instructions}` : ''}`,
+      },
+    ])
 
     generateMutation.mutate({
       job_description: jobDescription,
@@ -280,33 +227,28 @@ export function CreateResumePage() {
 
   const handleSendMessage = () => {
     if (!chatInput.trim() || !resumeId) return
-
-    setMessages(prev => [...prev, { role: 'user', content: chatInput }])
+    setMessages((prev) => [...prev, { role: 'user', content: chatInput }])
     refineMutation.mutate(chatInput)
     setChatInput('')
   }
 
   const handleDownloadPdf = async () => {
     if (!resumeId) return
-    
     try {
-      toast.loading('Compiling PDF with Docker LaTeX...', { id: 'pdf-download' })
+      toast.loading('Compiling PDF...', { id: 'pdf-download' })
       const response = await resumesApi.getPdf(resumeId)
       const blob = new Blob([response.data], { type: 'application/pdf' })
-      
-      // Check if PDF is valid size
       if (blob.size < 10000) {
         toast.error('PDF may be invalid. Try recompiling.', { id: 'pdf-download' })
         return
       }
-      
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
       a.download = 'resume.pdf'
       a.click()
       window.URL.revokeObjectURL(url)
-      toast.success(`PDF downloaded! (${Math.round(blob.size / 1024)}KB)`, { id: 'pdf-download' })
+      toast.success(`PDF downloaded (${Math.round(blob.size / 1024)}KB)`, { id: 'pdf-download' })
     } catch (error: any) {
       toast.error(error?.response?.data?.detail || 'Failed to download PDF', { id: 'pdf-download' })
     }
@@ -314,7 +256,6 @@ export function CreateResumePage() {
 
   const handleDownloadLatex = async () => {
     if (!resumeId) return
-    
     try {
       const response = await resumesApi.getLatex(resumeId)
       const blob = new Blob([response.data], { type: 'text/plain' })
@@ -324,8 +265,8 @@ export function CreateResumePage() {
       a.download = 'resume.tex'
       a.click()
       window.URL.revokeObjectURL(url)
-      toast.success('LaTeX file downloaded!')
-    } catch (error) {
+      toast.success('LaTeX file downloaded')
+    } catch {
       toast.error('Failed to download LaTeX')
     }
   }
@@ -342,168 +283,193 @@ export function CreateResumePage() {
   const isGenerating = generateMutation.isPending || refineMutation.isPending
   const isEditMode = !!editResumeId
 
-  // Show loading state while loading resume
   if (isLoadingResume) {
     return (
       <div className="h-[calc(100vh-8rem)] flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-lg font-medium">Loading resume...</p>
-          <p className="text-sm text-gray-500">Preparing preview</p>
+        <div className="preview-state">
+          <NewtonLoader size="lg" />
+          <p className="preview-state-title">Loading Resume</p>
+          <p className="preview-state-subtitle">Preparing editable session and preview.</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex gap-6 animate-fade-in">
-      {/* Left Panel - Input */}
-      <div className="w-1/2 flex flex-col">
-        <Card className="flex-1 flex flex-col">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary" />
-              {isEditMode ? 'Edit Resume' : 'Generate Resume'}
-            </CardTitle>
-            <CardDescription>
-              {isEditMode 
-                ? 'Modify your resume or regenerate with updated job description'
-                : 'Paste the job description and let AI create a tailored resume'
-              }
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex-1 flex flex-col gap-4">
-            {(!resumeId && !isEditMode) ? (
-              <>
-                <div className="flex-1">
-                  <label className="text-sm font-medium mb-2 block">Job Description *</label>
-                  <Textarea
-                    value={jobDescription}
-                    onChange={(e) => setJobDescription(e.target.value)}
-                    placeholder="Paste the job description here..."
-                    className="h-[300px] resize-none"
-                    disabled={isGenerating}
-                  />
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25 }}
+      className="resume-builder-grid h-[calc(100vh-8rem)]"
+    >
+      <Card className="builder-card flex h-full flex-col">
+        <CardHeader className="builder-header">
+          <CardTitle className="flex items-center gap-2 text-[#171717]">
+            {isEditMode ? 'Edit Resume' : 'Generate Resume'}
+          </CardTitle>
+          <CardDescription className="text-[#666666]">
+            {isEditMode
+              ? 'Refine and regenerate with better precision.'
+              : 'Paste the target job description and generate a tailored resume.'}
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="flex flex-1 flex-col gap-4 overflow-hidden">
+          {!resumeId && !isEditMode ? (
+            <>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-[#4d4d4d]">Job Description *</label>
+                <Textarea
+                  value={jobDescription}
+                  onChange={(e) => setJobDescription(e.target.value)}
+                  placeholder="Paste the full JD, responsibilities, skills, and team requirements..."
+                  className="builder-textarea"
+                  disabled={isGenerating}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-[#4d4d4d]">Additional Instructions</label>
+                <Input
+                  value={instructions}
+                  onChange={(e) => setInstructions(e.target.value)}
+                  placeholder="e.g., Focus on backend impact, leadership, and distributed systems."
+                  className="builder-input"
+                  disabled={isGenerating}
+                />
+              </div>
+
+              <div className="builder-generate-wrap">
+                <div className="builder-generate-button-wrap">
+                  <button
+                    type="button"
+                    onClick={handleGenerate}
+                    disabled={isGenerating || !jobDescription.trim()}
+                    className="builder-generate-btn"
+                  >
+                    <span className="builder-generate-label">
+                      {isGenerating ? (
+                        <>
+                          <NewtonLoader size="sm" />
+                          Generating Resume
+                        </>
+                      ) : (
+                        'Generate Resume'
+                      )}
+                    </span>
+                  </button>
+                  <div className="builder-generate-shadow" />
                 </div>
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Additional Instructions (optional)</label>
-                  <Input
-                    value={instructions}
-                    onChange={(e) => setInstructions(e.target.value)}
-                    placeholder="e.g., Emphasize leadership skills, highlight Python experience..."
-                    disabled={isGenerating}
-                  />
-                </div>
-                <Button
-                  onClick={handleGenerate}
-                  disabled={isGenerating || !jobDescription.trim()}
-                  size="lg"
-                  className="w-full gap-2"
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  height="100%"
+                  width="100%"
+                  className="builder-generate-grid"
                 >
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-4 w-4" />
-                      Generate Resume
-                    </>
-                  )}
-                </Button>
-              </>
-            ) : (
-              <>
-                {/* Chat Messages */}
-                <div className="flex-1 overflow-auto space-y-4 pr-2">
+                  <defs>
+                    <pattern patternUnits="userSpaceOnUse" height={30} width={30} id="builderDottedGrid">
+                      <circle fill="rgba(0,0,0,0.12)" r={1} cy={2} cx={2} />
+                    </pattern>
+                  </defs>
+                  <rect fill="url(#builderDottedGrid)" height="100%" width="100%" />
+                </svg>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="builder-chat-shell flex-1">
+                <div className="builder-chat">
                   {messages.map((msg, idx) => (
-                    <div
-                      key={idx}
-                      className={`chat-message ${msg.role}`}
-                    >
+                    <div key={idx} className={`builder-message ${msg.role}`}>
                       <p className="whitespace-pre-wrap">{msg.content}</p>
                     </div>
                   ))}
-                  {isGenerating && (
-                    <div className="chat-message assistant">
+
+                  {isGenerating ? (
+                    <div className="builder-message assistant">
                       <div className="flex items-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Working on it...</span>
+                        <NewtonLoader size="sm" />
+                        <span>Applying changes...</span>
                       </div>
                     </div>
-                  )}
-                </div>
-                
-                {/* Chat Input */}
-                <div className="flex gap-2">
-                  <Input
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    placeholder="Request changes... (e.g., Add more technical skills)"
-                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                    disabled={isGenerating}
-                  />
-                  <Button onClick={handleSendMessage} disabled={isGenerating || !chatInput.trim()}>
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex gap-2">
-                  {hasPdf && (
-                    <Button onClick={handleDownloadPdf} className="flex-1 gap-2">
-                      <Download className="h-4 w-4" />
-                      Download PDF
-                    </Button>
-                  )}
-                  <Button onClick={handleDownloadLatex} variant="outline" className="flex-1 gap-2">
-                    <FileText className="h-4 w-4" />
-                    Download LaTeX
-                  </Button>
-                  <Button onClick={handleReset} variant="ghost" size="icon">
-                    <RefreshCw className="h-4 w-4" />
-                  </Button>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Right Panel - Preview */}
-      <div className="w-1/2 flex flex-col">
-        <Card className="flex-1 flex flex-col">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Resume Preview
-            </CardTitle>
-            <CardDescription>
-              {resumeId ? 'Your generated resume' : 'Preview will appear here'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex-1 overflow-auto">
-            {resumeId ? (
-              <div className="h-full flex flex-col">
-                {/* Try iframe first, fallback to API call */}
-                <PDFPreview resumeId={resumeId} />
-                <div className="text-xs text-gray-500 mt-2 text-center">
-                  PDF Preview • If blank, PDF compilation may have failed
+                  ) : null}
                 </div>
               </div>
-            ) : (
-              <div className="h-full flex items-center justify-center text-muted-foreground">
-                  <div className="text-center">
-                    <FileText className="h-16 w-16 mx-auto mb-4 opacity-20" />
-                    <p>Your resume preview will appear here</p>
-                  <p className="text-sm mt-1">Enter a job description and generate</p>
-                </div>
+
+              <div className="builder-chat-input-row">
+                <Input
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  placeholder="Request improvements... (e.g., Quantify impact and strengthen ATS keywords)"
+                  className="builder-input"
+                  onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                  disabled={isGenerating}
+                />
+                <button
+                  type="button"
+                  onClick={handleSendMessage}
+                  disabled={isGenerating || !chatInput.trim()}
+                  className="builder-send-fancy"
+                >
+                  <svg className="send-icon" xmlns="http://www.w3.org/2000/svg" width={24} height={24} viewBox="0 0 24 24">
+                    <path
+                      fill="currentColor"
+                      fillOpacity="0.4"
+                      d="m16.066 10.184l-3.89-1.795c-2.154-.994-3.231-1.491-3.725-.982c-.493.509.038 1.572 1.101 3.698c.22.44.33.659.33.895s-.11.456-.33.895c-1.063 2.126-1.594 3.19-1.1 3.698c.493.51 1.57.012 3.725-.982l3.889-1.795c1.698-.784 2.548-1.176 2.548-1.816c0-.64-.85-1.032-2.549-1.816"
+                    />
+                    <path
+                      fill="currentColor"
+                      d="M8.895 11.684L8.174 9.52a1 1 0 0 0-.707-.654l-1.78-.445a.8.8 0 0 0-.91 1.134l1.111 2.22a.5.5 0 0 1 0 .448l-1.11 2.22a.8.8 0 0 0 .91 1.134l1.78-.445a1 1 0 0 0 .706-.654l.72-2.163a1 1 0 0 0 0-.632"
+                    />
+                  </svg>
+                  <span>Send Message</span>
+                </button>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+
+              <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
+                {hasPdf ? (
+                  <Button onClick={handleDownloadPdf} className="builder-action-btn builder-action-btn--primary">
+                    <Download className="h-4 w-4" />
+                    <span>Download PDF</span>
+                  </Button>
+                ) : (
+                  <div />
+                )}
+                <Button onClick={handleDownloadLatex} variant="outline" className="builder-action-btn builder-action-btn--secondary">
+                  <FileText className="h-4 w-4" />
+                  <span>Download LaTeX</span>
+                </Button>
+                <Button onClick={handleReset} variant="ghost" size="icon" className="builder-reset-btn">
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="builder-card flex h-full flex-col overflow-hidden">
+        <CardHeader className="builder-header">
+          <CardTitle className="flex items-center gap-2 text-[#171717]">
+            <FileText className="h-5 w-5 text-[#0a72ef]" />
+            Resume Preview
+          </CardTitle>
+          <CardDescription className="text-[#666666]">
+            {resumeId ? 'Interactive preview with recompile controls.' : 'Preview will appear once you generate a resume.'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-1 flex-col overflow-hidden">
+          {resumeId ? (
+            <PDFPreview resumeId={resumeId} />
+          ) : (
+            <div className="preview-state h-full">
+              <FileText className="h-14 w-14 text-slate-200" />
+              <p className="preview-state-title">No Preview Yet</p>
+              <p className="preview-state-subtitle">Generate a resume to unlock live PDF preview and export actions.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </motion.div>
   )
 }
