@@ -12,6 +12,7 @@ from app.task_queue import enqueue_task
 
 
 router = APIRouter(prefix="/jobs", tags=["Jobs"])
+MAX_RESUMES_PER_USER = 5
 
 
 class JobSearchRequest(BaseModel):
@@ -111,6 +112,7 @@ async def generate_resume_for_job(
 ):
     """Queue resume generation for a specific saved job"""
     jobs_collection = get_collection("jobs")
+    resumes_collection = get_collection("resumes")
 
     job = await jobs_collection.find_one(
         {
@@ -120,6 +122,13 @@ async def generate_resume_for_job(
     )
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+
+    current_resume_count = await resumes_collection.count_documents({"user_id": current_user["id"]})
+    if current_resume_count >= MAX_RESUMES_PER_USER:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Resume limit reached (max 5). Please delete an older resume to generate a new one.",
+        )
 
     try:
         job_queue_id = enqueue_task(

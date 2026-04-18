@@ -87,7 +87,13 @@ RESUME_GENERATION_PROMPT = """Based on the job description and user profile prov
    - Is properly formatted and compilable
 
 ## Output:
-Return ONLY the complete LaTeX code for the resume. Do not include any explanations before or after the code.
+Return ONLY valid JSON in this format:
+{{
+  "resume_title": "short job-specific title including role/company (max 120 chars)",
+  "assistant_response": "2-3 concise sentences summarizing how this resume was tailored",
+  "latex_code": "complete LaTeX code from \\documentclass to \\end{{document}}",
+  "ats_score": 0-100
+}}
 """
 
 
@@ -112,7 +118,12 @@ RESUME_REFINEMENT_PROMPT = """You are a resume editor. The user has requested sp
 - User: "Remove project X" → Delete the entire project section for X
 
 ## OUTPUT FORMAT:
-Return ONLY the complete modified LaTeX code. No explanations, no markdown code blocks, just the raw LaTeX starting with \\documentclass and ending with \\end{{document}}.
+Return ONLY valid JSON in this format:
+{{
+  "assistant_response": "concise user-facing summary of changes applied",
+  "latex_code": "complete modified LaTeX code from \\documentclass to \\end{{document}}",
+  "ats_score": 0-100
+}}
 """
 
 

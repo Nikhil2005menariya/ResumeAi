@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, List
+from typing import Any, Dict, Optional, List
 from pydantic import BaseModel, Field, EmailStr
 from bson import ObjectId
 
@@ -211,8 +211,10 @@ class ResumeInDB(ResumeBase):
     pdf_data: Optional[bytes] = None
     pdf_url: Optional[str] = None
     ats_score: Optional[float] = None
-    selected_projects: List[str] = []  # Project IDs
-    selected_experience: List[int] = []  # Experience indices
+    assistant_response: Optional[str] = None
+    chat_history: List[Dict[str, Any]] = Field(default_factory=list)
+    selected_projects: List[str] = Field(default_factory=list)  # Project IDs
+    selected_experience: List[int] = Field(default_factory=list)  # Experience indices
     version: int = 1
     is_latest: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)

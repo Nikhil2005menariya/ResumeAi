@@ -26,6 +26,10 @@ GEMINI_API_KEY=your-gemini-api-key
 # SerpAPI (for job search)
 SERPAPI_KEY=your-serpapi-key
 
+# Texapi (optional, for hosted LaTeX PDF compilation)
+TEXAPI_API_KEY=your-texapi-api-key
+TEXAPI_BASE_URL=https://texapi.ovh
+
 # App
 FRONTEND_URL=http://localhost:5173
 BACKEND_URL=http://localhost:8000

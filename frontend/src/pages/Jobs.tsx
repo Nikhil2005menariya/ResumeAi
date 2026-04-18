@@ -95,7 +95,7 @@ export function JobsPage() {
       toast.success(data?.status_message || 'Resume generated for this job!')
     },
     onError: (error: any) => {
-      toast.error(error?.message || error.response?.data?.detail || 'Failed to generate resume')
+      toast.error(error?.response?.data?.detail || error?.message || 'Failed to generate resume')
     },
   })
 

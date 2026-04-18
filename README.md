@@ -31,7 +31,7 @@ A full-stack web application that generates professional, ATS-optimized resumes 
 - **💼 Project Showcase**: Add and showcase projects to include in resumes
 - **🔐 Secure Authentication**: Auth0 OAuth + Email/Password authentication
 - **🔑 Password Reset**: OTP-based password reset for users without passwords
-- **📥 PDF Export**: Download resumes as PDF (compiled with Docker LaTeX)
+- **📥 PDF Export**: Download resumes as PDF (compiled with Texapi)
 - **💾 Version Control**: Track resume versions and iterations
 
 ### Advanced Features
@@ -66,7 +66,7 @@ A full-stack web application that generates professional, ATS-optimized resumes 
 - **LangGraph** - Multi-agent orchestration
 - **Claude AI** - Resume generation
 - **GoogleGenerativeAI** - Alternative AI backend
-- **Docker** - LaTeX compilation (texlive image)
+- **Texapi** - Hosted LaTeX-to-PDF compilation
 - **FastAPI WebSocket** - Real-time updates
 
 ### DevOps
@@ -203,6 +203,10 @@ GOOGLE_API_KEY=your-google-api-key
 # SerpAPI for job search
 SERPAPI_API_KEY=your-serpapi-key
 
+# Texapi (optional hosted LaTeX compiler)
+TEXAPI_API_KEY=your-texapi-api-key
+TEXAPI_BASE_URL=https://texapi.ovh
+
 # Frontend URL
 FRONTEND_URL=http://localhost:5173
 
@@ -251,134 +255,50 @@ VITE_AUTH0_AUDIENCE=your-api-identifier
 EOF
 ```
 
-### 4. Docker LaTeX Setup (Required for PDF Generation)
+### 4. Texapi Setup (Required for PDF Generation)
 
-Resume.AI uses Docker with **texlive** to compile LaTeX to PDF. This provides reliable, sandboxed LaTeX compilation.
+Resume.AI uses **Texapi only** to compile LaTeX to PDF.
 
-#### Why Docker?
-- ✅ No local LaTeX installation needed
-- ✅ Consistent environment (like Overleaf)
-- ✅ Safe sandboxed compilation
-- ✅ Handles complex LaTeX packages
+#### Setup
 
-#### Installation Steps
-
-**Step 1: Install Docker**
-```bash
-# macOS (using Homebrew)
-brew install --cask docker
-
-# Or download from: https://www.docker.com/products/docker-desktop
-
-# Verify installation
-docker --version
-```
-
-**Step 2: Pull texlive Docker Image**
-```bash
-# Pull the texlive image (one-time, ~3GB)
-docker pull texlive/texlive:latest
-
-# Verify image
-docker images | grep texlive
-```
-
-**Step 3: Start Docker Container**
-
-**Option A: Manual Docker Run**
-```bash
-# Start texlive container with LaTeX compilation endpoint
-docker run -d \
-  --name resume-latex \
-  -p 8080:8080 \
-  texlive/texlive:latest
-
-# Verify container is running
-docker ps | grep resume-latex
-
-# View logs
-docker logs resume-latex
-```
-
-**Option B: Using docker-compose (Recommended)**
-```bash
-# Already configured in docker-compose.yml
-docker-compose up -d texlive
-
-# Verify service
-docker-compose ps
-```
-
-#### LaTeX Compilation Methods (Auto-Fallback)
-
-Resume.AI uses a smart fallback system for PDF compilation:
-
-```
-1. Try LaTeX.Online (Free, no setup needed)
-   ↓ (if fails)
-2. Try Docker LaTeX (requires Docker running)
-   ↓ (if fails)
-3. Try Local pdflatex (if installed)
-   ↓ (if fails)
-4. Return Error (No ReportLab fallback)
-```
-
-**Best for Production:** Use Docker for reliability
-**Best for Development:** LaTeX.Online (no Docker needed) or Docker if you have it
-
-#### Verify Docker LaTeX Works
+Add your Texapi credentials to backend `.env`:
 
 ```bash
-# Check if container is healthy
-curl -I http://localhost:8080
-
-# Expected: HTTP/1.1 200 OK (or similar)
-
-# View container logs for errors
-docker logs resume-latex
-
-# Restart if needed
-docker restart resume-latex
+TEXAPI_API_KEY=your-texapi-api-key
+TEXAPI_BASE_URL=https://texapi.ovh
 ```
 
-#### Troubleshooting Docker LaTeX
+#### Compilation behavior
 
-**Container won't start:**
+Resume compilation is Texapi-only. The backend accepts either:
+1. Direct PDF bytes returned by Texapi, or
+2. Texapi JSON response (`resultPath` / `outputFiles`) and then downloads/parses the PDF.
+
+If Texapi fails, PDF generation fails (no Docker/LaTeX.Online/local fallback).
+
+**Best for Production:** Keep a valid Texapi key configured and monitor Texapi availability.
+
+#### Verify Texapi Works
+
 ```bash
-# Check Docker daemon
-docker info
-
-# If not running, start Docker Desktop (macOS/Windows)
-# or: sudo systemctl start docker (Linux)
+curl -X POST https://texapi.ovh/api/latex/compile \
+  -H "X-API-KEY: your-texapi-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"content":"\\documentclass{article}\\begin{document}Hello\\end{document}"}'
 ```
 
-**Port 8080 already in use:**
-```bash
-# Use different port
-docker run -d -p 8090:8080 texlive/texlive:latest
+#### Troubleshooting Texapi
 
-# Update backend config: LATEX_SERVER_URL=http://localhost:8090
-```
+**401 Unauthorized**
+- Check `TEXAPI_API_KEY` value in backend `.env`
+- Restart backend and RQ worker after `.env` changes
 
-**Container running but LaTeX fails:**
-```bash
-# Check logs for errors
-docker logs resume-latex
+**Non-JSON response from compile endpoint**
+- Texapi may return PDF bytes directly; backend handles this automatically
 
-# Rebuild container
-docker-compose down
-docker pull texlive/texlive:latest
-docker-compose up -d texlive
-
-# Verify with simple LaTeX
-docker exec resume-latex pdflatex --version
-```
-
-**PDF generation still failing:**
-- Ensure Docker container is running: `docker ps`
-- Check backend logs for compilation errors
+**PDF generation failing**
+- Check backend/RQ logs for Texapi HTTP status and response errors
 - Verify LaTeX code is valid
-- Try LaTeX.Online instead (falls back automatically)
 
 ---
 
@@ -401,9 +321,6 @@ rq worker -w rq.worker.SimpleWorker --url "$REDIS_URL" long_running_tasks
 # Terminal 3 - Start Frontend
 cd frontend
 npm run dev
-
-# Terminal 4 - Docker LaTeX (keep running)
-docker run -d -p 8080:8080 texlive/texlive:latest
 
 # Access: http://localhost:5173
 ```

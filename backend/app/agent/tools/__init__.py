@@ -1,13 +1,13 @@
 import json
-import subprocess
-import tempfile
-import os
 import re
 import logging
 import asyncio
+import base64
+import binascii
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 import aiohttp
+import httpx
 from bs4 import BeautifulSoup
 import google.generativeai as genai
 
@@ -22,7 +22,7 @@ logger.setLevel(logging.DEBUG)
 if settings.gemini_api_key:
     genai.configure(api_key=settings.gemini_api_key)
 
-# NO REPORTLAB - Docker LaTeX only
+# NO REPORTLAB - Texapi only
 REPORTLAB_AVAILABLE = False
 
 
@@ -481,6 +481,91 @@ def generate_latex_resume(
     return latex
 
 
+def _normalize_ats_score(value: Any) -> Optional[float]:
+    if isinstance(value, (int, float)):
+        return round(max(0.0, min(100.0, float(value))), 1)
+    if isinstance(value, str):
+        number_match = re.search(r"\d+(?:\.\d+)?", value)
+        if number_match:
+            score = float(number_match.group())
+            return round(max(0.0, min(100.0, score)), 1)
+    return None
+
+
+def _normalize_resume_title(value: Any) -> Optional[str]:
+    if not isinstance(value, str):
+        return None
+    title = re.sub(r"\s+", " ", value.strip().strip('"').strip("'"))
+    if not title:
+        return None
+    return title[:120]
+
+
+def extract_latex_and_ats_from_response(response_text: str) -> Dict[str, Any]:
+    """Extract LaTeX, ATS score, assistant reply and title from Gemini response."""
+    latex_code = ""
+    ats_score: Optional[float] = None
+    assistant_response: Optional[str] = None
+    resume_title: Optional[str] = None
+
+    if not response_text:
+        return {
+            "latex_code": latex_code,
+            "ats_score": ats_score,
+            "assistant_response": assistant_response,
+            "resume_title": resume_title,
+        }
+
+    # Preferred format: JSON payload.
+    try:
+        json_match = re.search(r"\{.*\}", response_text, re.DOTALL)
+        if json_match:
+            payload = json.loads(json_match.group())
+            if isinstance(payload, dict):
+                latex_candidate = payload.get("latex_code") or payload.get("latex")
+                if isinstance(latex_candidate, str):
+                    latex_code = latex_candidate
+                ats_score = _normalize_ats_score(payload.get("ats_score") or payload.get("ats"))
+                assistant_text = (
+                    payload.get("assistant_response")
+                    or payload.get("response")
+                    or payload.get("message")
+                )
+                if isinstance(assistant_text, str):
+                    assistant_response = assistant_text.strip()
+                resume_title = _normalize_resume_title(
+                    payload.get("resume_title") or payload.get("title")
+                )
+    except Exception:
+        pass
+
+    # Fallback: raw LaTeX response.
+    if not latex_code and "\\documentclass" in response_text:
+        start = response_text.find("\\documentclass")
+        end = response_text.rfind("\\end{document}")
+        if end != -1:
+            end += len("\\end{document}")
+            latex_code = response_text[start:end]
+        else:
+            latex_code = response_text[start:]
+
+    if ats_score is None:
+        ats_context = re.search(
+            r"(ats(?:\s*score)?[^0-9]{0,20})(\d{1,3}(?:\.\d+)?)",
+            response_text,
+            re.IGNORECASE,
+        )
+        if ats_context:
+            ats_score = _normalize_ats_score(ats_context.group(2))
+
+    return {
+        "latex_code": latex_code,
+        "ats_score": ats_score,
+        "assistant_response": assistant_response,
+        "resume_title": resume_title,
+    }
+
+
 async def generate_ai_resume(
     profile: Dict,
     projects: List[Dict],
@@ -489,7 +574,7 @@ async def generate_ai_resume(
     jd_analysis: Dict,
     job_description: str,
     user_instructions: str = ""
-) -> str:
+) -> Dict[str, Any]:
     """Generate ATS-optimized resume using AI with real user data"""
     
     # Step 0: Pre-fill template with actual user data (name, email, phone, location, etc)
@@ -685,211 +770,162 @@ IMPORTANT RULES:
 LATEX TEMPLATE (Fill in only the <<PLACEHOLDER>> sections):
 {latex_template_with_data}
 
-Generate ONLY the complete modified LaTeX code, no explanations. Start with \\documentclass and end with \\end{{document}}.
+OUTPUT FORMAT (STRICT):
+Return ONLY valid JSON:
+{{
+  "resume_title": "short job-specific title including role/company (max 120 chars)",
+  "assistant_response": "2-3 concise sentences explaining what was optimized for this JD",
+  "latex_code": "complete modified LaTeX code from \\documentclass to \\end{{document}}",
+  "ats_score": 0-100
+}}
 """
     
     # Step 5: Generate with AI
     print("🤖 Generating resume content with AI...")
-    latex_code = await generate_with_gemini(prompt, "")
+    model_response = await generate_with_gemini(prompt, "")
+    parsed = extract_latex_and_ats_from_response(model_response)
+    latex_code = parsed.get("latex_code", "")
+    ats_score = parsed.get("ats_score")
+    assistant_response = parsed.get("assistant_response")
+    resume_title = parsed.get("resume_title")
     
     # Step 6: Extract LaTeX code from response
-    if "\\documentclass" in latex_code:
+    if latex_code and "\\documentclass" in latex_code:
         start = latex_code.find("\\documentclass")
         end = latex_code.rfind("\\end{document}") + len("\\end{document}")
         latex_code = latex_code[start:end]
-    
-    return latex_code
+
+    return {
+        "latex_code": latex_code,
+        "ats_score": ats_score,
+        "assistant_response": assistant_response,
+        "resume_title": resume_title,
+    }
 
 
-def _compile_with_online_latex(latex_code: str) -> Optional[bytes]:
-    """Compile LaTeX using LaTeX.Online (free, no auth required)
-    
-    Note: LaTeX.Online has URL parameter limits and can fail with certain special characters.
-    This is a best-effort service - Docker fallback is built in.
-    """
+def _compile_with_texapi(latex_code: str) -> Optional[bytes]:
+    """Compile LaTeX using Texapi (requires TEXAPI_API_KEY)."""
+    api_key = settings.texapi_api_key.strip() if settings.texapi_api_key else ""
+    if not api_key:
+        print("❌ TEXAPI_API_KEY not set; Texapi compilation is required")
+        return None
+
+    base_url = (settings.texapi_base_url or "https://texapi.ovh").rstrip("/")
+    compile_url = f"{base_url}/api/latex/compile"
+    headers = {"X-API-KEY": api_key, "Content-Type": "application/json"}
+
     try:
-        import requests
-        import urllib.parse
-        
-        # Use LaTeX.Online (latexonline.cc) - free, fully open-source
-        # API: https://latexonline.cc/compile?text=<encoded-latex>
-        url = "https://latexonline.cc/compile"
-        
-        # Check if LaTeX contains problematic characters for URL encoding
-        problematic_chars = ['"', '&', '#', '%']
-        has_problematic = any(char in latex_code for char in problematic_chars)
-        
-        if has_problematic:
-            # Skip LaTeX.Online if problematic chars detected - Docker is more reliable
-            print("⚠️  LaTeX contains special characters, skipping LaTeX.Online (using Docker instead)")
-            return None
-        
-        # Encode LaTeX code for URL
-        encoded_latex = urllib.parse.quote(latex_code, safe='')
-        full_url = f"{url}?text={encoded_latex}"
-        
-        print("🌐 Compiling LaTeX using LaTeX.Online service...")
-        # Increase timeout to 120s - LaTeX compilation can take time
-        response = requests.get(full_url, timeout=120)
-        
-        if response.status_code == 200:
-            pdf_data = response.content
-            # Verify it's a valid PDF (starts with %PDF)
-            if pdf_data.startswith(b'%PDF'):
-                print(f"✅ LaTeX.Online compilation successful: {len(pdf_data)} bytes")
-                return pdf_data
-            else:
-                print(f"LaTeX.Online returned invalid PDF (likely compilation error)")
-                return None
+        print("🌐 Compiling LaTeX using Texapi...")
+        response = httpx.post(
+            compile_url,
+            headers=headers,
+            json={"content": latex_code},
+            timeout=120.0,
+        )
+    except httpx.TimeoutException:
+        print("Texapi compilation timed out (>120s)")
+        return None
+    except httpx.RequestError as exc:
+        print(f"Texapi request failed: {exc}")
+        return None
+
+    if response.status_code != 200:
+        print(f"Texapi compilation failed: HTTP {response.status_code}")
+        return None
+
+    response_content = response.content
+    response_content_type = response.headers.get("content-type", "").lower()
+
+    # Some Texapi deployments can return the PDF bytes directly from /compile.
+    pdf_start = response_content.find(b"%PDF")
+    if pdf_start != -1:
+        direct_pdf = response_content[pdf_start:]
+        if len(direct_pdf) > 1000:
+            print(f"✅ Texapi compilation successful (direct PDF): {len(direct_pdf)} bytes")
+            return direct_pdf
+
+    if "application/pdf" in response_content_type:
+        print("Texapi returned application/pdf but payload was not a valid PDF header")
+        return None
+
+    try:
+        compile_result = response.json()
+    except (ValueError, UnicodeDecodeError) as exc:
+        print(f"Texapi returned non-JSON/non-PDF response: {exc}")
+        return None
+
+    status = str(compile_result.get("status", "")).lower()
+    errors = compile_result.get("errors") or []
+
+    if status != "success":
+        error_message = "; ".join(str(err) for err in errors[:3]) if errors else "unknown compilation error"
+        print(f"Texapi compilation error: {error_message}")
+        return None
+
+    result_path = compile_result.get("resultPath")
+    if isinstance(result_path, str) and result_path:
+        if result_path.startswith("http://") or result_path.startswith("https://"):
+            download_url = result_path
         else:
-            print(f"LaTeX.Online compilation failed: {response.status_code} - falling back to Docker")
+            if not result_path.startswith("/"):
+                result_path = f"/{result_path}"
+            download_url = f"{base_url}{result_path}"
+
+        try:
+            download_response = httpx.get(
+                download_url,
+                headers={"X-API-KEY": api_key},
+                timeout=120.0,
+            )
+        except httpx.TimeoutException:
+            print("Texapi PDF download timed out")
             return None
-            
-    except requests.exceptions.Timeout:
-        print("LaTeX.Online compilation timed out (>120s) - falling back to Docker")
-        return None
-    except Exception as e:
-        print(f"LaTeX.Online compilation error: {e} - falling back to Docker")
-        return None
+        except httpx.RequestError as exc:
+            print(f"Texapi PDF download failed: {exc}")
+            return None
 
+        if download_response.status_code == 200:
+            pdf_data = download_response.content
+            if pdf_data.startswith(b"%PDF") and len(pdf_data) > 1000:
+                print(f"✅ Texapi compilation successful: {len(pdf_data)} bytes")
+                return pdf_data
+            print("Texapi download succeeded but content is not a valid PDF")
+        else:
+            print(f"Texapi PDF download failed: HTTP {download_response.status_code}")
 
-def compile_latex_to_pdf(latex_code: str) -> Optional[bytes]:
-    """Compile LaTeX code to PDF - Priority: LaTeX.Online (free) → Docker → Local pdflatex"""
-    if not latex_code.strip():
-        return None
-    
-    # First try LaTeX.Online (free, no setup required, reliable)
-    pdf_data = _compile_with_online_latex(latex_code)
-    if pdf_data and len(pdf_data) > 1000:
-        print(f"✅ LaTeX.Online compilation successful: {len(pdf_data)} bytes")
-        return pdf_data
-    
-    # Fallback to Docker LaTeX if online fails
-    pdf_data = _compile_with_docker_latex(latex_code)
-    if pdf_data and len(pdf_data) > 1000:
-        print(f"✅ Docker LaTeX compilation successful: {len(pdf_data)} bytes")
-        return pdf_data
-    
-    # Fallback to local pdflatex if available
-    pdf_data = _compile_with_pdflatex(latex_code)
-    if pdf_data and len(pdf_data) > 1000:
-        print(f"✅ Local pdflatex compilation successful: {len(pdf_data)} bytes")
-        return pdf_data
-    
-    # FINAL FAILURE - NO REPORTLAB FALLBACK
-    print("❌ ALL LaTeX compilation methods FAILED")
+    output_files = compile_result.get("outputFiles") or []
+    for output_file in output_files:
+        if str(output_file.get("type", "")).lower() != "pdf":
+            continue
+
+        content = output_file.get("content")
+        if not isinstance(content, str) or not content:
+            continue
+
+        try:
+            decoded = base64.b64decode(content, validate=True)
+        except (binascii.Error, ValueError):
+            decoded = content.encode("utf-8", errors="ignore")
+
+        if decoded.startswith(b"%PDF") and len(decoded) > 1000:
+            print(f"✅ Texapi compilation successful: {len(decoded)} bytes")
+            return decoded
+
+    print("Texapi response did not include a valid PDF")
     return None
 
 
-def _compile_with_docker_latex(latex_code: str) -> Optional[bytes]:
-    """Compile LaTeX using Docker with texlive container (like Overleaf)"""
-    try:
-        import subprocess
-        
-        # Check if Docker is available
-        result = subprocess.run(["docker", "--version"], capture_output=True, timeout=5)
-        if result.returncode != 0:
-            print("Docker not available")
-            return None
-        
-        # Use the full LaTeX Docker image (tested and working)
-        image_name = "texlive/texlive:latest"
-        
-        # Only pull image if it doesn't exist locally
-        result = subprocess.run(
-            ["docker", "images", "-q", image_name], 
-            capture_output=True, 
-            timeout=10
-        )
-        if not result.stdout.strip():
-            print(f"🐳 Pulling LaTeX Docker image {image_name}...")
-            pull_result = subprocess.run(
-                ["docker", "pull", image_name], 
-                capture_output=True, 
-                timeout=120  # 2 minutes max for pull
-            )
-            if pull_result.returncode != 0:
-                print(f"Failed to pull Docker image: {pull_result.stderr.decode()[:200]}")
-                return None
-        
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tex_path = os.path.join(tmpdir, "resume.tex")
-            pdf_path = os.path.join(tmpdir, "resume.pdf")
-            
-            # Write LaTeX file
-            with open(tex_path, "w", encoding="utf-8") as f:
-                f.write(latex_code)
-            
-            # Compile with Docker LaTeX container (single pass for speed, run twice for references)
-            docker_cmd = [
-                "docker", "run", "--rm",
-                "-v", f"{tmpdir}:/workspace",
-                "-w", "/workspace",
-                image_name,
-                "pdflatex", "-interaction=nonstopmode", "resume.tex"
-            ]
-            
-            # Run twice for proper references (like Overleaf)
-            for i in range(2):
-                print(f"🔄 Docker LaTeX compilation pass {i+1}...")
-                result = subprocess.run(docker_cmd, capture_output=True, timeout=60)
-                
-                # Log but don't fail immediately - PDF might still be generated despite warnings
-                if result.returncode != 0 and i == 1:
-                    print(f"⚠️  Docker pdflatex returned error code {result.returncode} (might still have generated PDF)")
-            
-            # Read PDF if it was created (even if there were warnings/errors)
-            if os.path.exists(pdf_path):
-                with open(pdf_path, "rb") as f:
-                    pdf_data = f.read()
-                    if len(pdf_data) > 1000:  # Valid PDF should be > 1KB
-                        print(f"✅ Docker LaTeX successful: {len(pdf_data)} bytes (despite warnings)")
-                        return pdf_data
-                    else:
-                        print(f"❌ PDF file too small ({len(pdf_data)} bytes) - likely compilation error")
-                        return None
-            else:
-                print("❌ PDF file not generated by Docker LaTeX")
-                return None
-                
-    except subprocess.TimeoutExpired:
-        print("Docker LaTeX compilation timed out")
-        return None
-    except Exception as e:
-        print(f"Docker LaTeX error: {e}")
+def compile_latex_to_pdf(latex_code: str) -> Optional[bytes]:
+    """Compile LaTeX code to PDF using Texapi only."""
+    if not latex_code.strip():
         return None
 
+    pdf_data = _compile_with_texapi(latex_code)
+    if pdf_data and len(pdf_data) > 1000:
+        print(f"✅ Texapi compilation successful: {len(pdf_data)} bytes")
+        return pdf_data
 
-def _compile_with_pdflatex(latex_code: str) -> Optional[bytes]:
-    """Try to compile LaTeX using pdflatex"""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tex_path = os.path.join(tmpdir, "resume.tex")
-        pdf_path = os.path.join(tmpdir, "resume.pdf")
-        
-        # Write LaTeX file
-        with open(tex_path, "w", encoding="utf-8") as f:
-            f.write(latex_code)
-        
-        try:
-            # Compile with pdflatex (run twice for references)
-            for _ in range(2):
-                result = subprocess.run(
-                    ["pdflatex", "-interaction=nonstopmode", "-output-directory", tmpdir, tex_path],
-                    capture_output=True,
-                    timeout=30
-                )
-            
-            # Read PDF if successful
-            if os.path.exists(pdf_path):
-                with open(pdf_path, "rb") as f:
-                    return f.read()
-        except subprocess.TimeoutExpired:
-            print("LaTeX compilation timed out")
-        except FileNotFoundError:
-            print("pdflatex not found")
-        except Exception as e:
-            print(f"LaTeX compilation error: {e}")
-    
+    print("❌ Texapi compilation failed")
     return None
 
 
@@ -1660,3 +1696,69 @@ Return as JSON format."""
         "responsibilities": [],
         "culture": None
     }
+
+
+async def score_resume_ats_with_gemini(
+    latex_code: str,
+    job_description: str = "",
+    keywords: Optional[List[str]] = None,
+) -> Optional[float]:
+    """Ask Gemini to score ATS fitness for a LaTeX resume and return 0-100 score."""
+    if not latex_code or not latex_code.strip():
+        return 0.0
+
+    keyword_list = ", ".join([k for k in (keywords or []) if k]) or "Not provided"
+    jd_text = job_description.strip() or "Not provided"
+
+    prompt = f"""You are an ATS evaluator for software/tech resumes.
+Evaluate the following resume and return ONLY JSON in this exact schema:
+{{
+  "ats_score": <number from 0 to 100>,
+  "confidence": <number from 0 to 1>,
+  "notes": ["short note 1", "short note 2", "short note 3"]
+}}
+
+Scoring criteria:
+1. Relevance to job description and required skills
+2. Keyword alignment and natural usage
+3. Resume structure/readability for ATS parsing
+4. Evidence/impact quality (metrics, outcomes, ownership)
+5. Overall fit for passing ATS screening
+
+Job Description:
+{jd_text}
+
+Reference Keywords:
+{keyword_list}
+
+Resume LaTeX:
+{latex_code}
+"""
+
+    try:
+        response = await generate_with_gemini(prompt)
+    except Exception as exc:
+        print(f"Gemini ATS scoring error: {exc}")
+        return None
+
+    try:
+        json_match = re.search(r"\{.*\}", response, re.DOTALL)
+        if json_match:
+            parsed = json.loads(json_match.group())
+            raw_score = parsed.get("ats_score")
+            if isinstance(raw_score, (int, float)):
+                return round(max(0.0, min(100.0, float(raw_score))), 1)
+            if isinstance(raw_score, str):
+                number_match = re.search(r"\d+(?:\.\d+)?", raw_score)
+                if number_match:
+                    score = float(number_match.group())
+                    return round(max(0.0, min(100.0, score)), 1)
+    except Exception as exc:
+        print(f"Failed to parse Gemini ATS score JSON: {exc}")
+
+    fallback_match = re.search(r"\b(\d{1,3}(?:\.\d+)?)\b", response)
+    if fallback_match:
+        score = float(fallback_match.group(1))
+        return round(max(0.0, min(100.0, score)), 1)
+
+    return None

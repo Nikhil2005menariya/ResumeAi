@@ -78,6 +78,9 @@ async def _process_generate_resume(
         else "Resume generated!",
         "resume_id": final_state.get("resume_id") if isinstance(final_state, dict) else None,
         "has_pdf": final_state.get("latex_code") is not None if isinstance(final_state, dict) else False,
+        "ats_score": final_state.get("ats_score") if isinstance(final_state, dict) else None,
+        "assistant_response": final_state.get("assistant_response") if isinstance(final_state, dict) else None,
+        "resume_title": final_state.get("resume_title") if isinstance(final_state, dict) else None,
     }
 
 
@@ -149,18 +152,11 @@ async def _process_refine_resume(
         }
 
     if isinstance(final_state, dict) and final_state.get("latex_code"):
-        try:
-            delete_resume_pdf(resume_id)
-        except RuntimeError as exc:
-            print(f"⚠️ Failed to delete S3 PDF cache for resume {resume_id}: {exc}")
-
         new_version = resume.get("version", 1) + 1
         await resumes_collection.update_one(
             {"_id": ObjectId(resume_id)},
             {
                 "$set": {
-                    "latex_code": final_state["latex_code"],
-                    "pdf_data": final_state.get("pdf_data"),
                     "version": new_version,
                     "updated_at": datetime.utcnow(),
                 }
@@ -175,7 +171,10 @@ async def _process_refine_resume(
         if isinstance(final_state, dict)
         else "Resume refined!",
         "resume_id": resume_id,
-        "has_pdf": final_state.get("pdf_data") is not None if isinstance(final_state, dict) else False,
+        "has_pdf": final_state.get("latex_code") is not None if isinstance(final_state, dict) else False,
+        "ats_score": final_state.get("ats_score") if isinstance(final_state, dict) else None,
+        "assistant_response": final_state.get("assistant_response") if isinstance(final_state, dict) else None,
+        "resume_title": final_state.get("resume_title") if isinstance(final_state, dict) else None,
     }
 
 
@@ -231,13 +230,7 @@ async def _process_recompile_resume_pdf(
     if not pdf_data:
         return {
             "status": AgentStatus.ERROR.value,
-            "status_message": "PDF compilation failed. Ensure Docker is running.",
-        }
-
-    if b"ReportLab" in pdf_data:
-        return {
-            "status": AgentStatus.ERROR.value,
-            "status_message": "ReportLab detected! Docker LaTeX required.",
+            "status_message": "PDF compilation failed with Texapi. Check TEXAPI_API_KEY and Texapi service availability.",
         }
 
     try:
@@ -263,8 +256,8 @@ async def _process_recompile_resume_pdf(
 
     return {
         "status": AgentStatus.COMPLETED.value,
-        "status_message": "PDF recompiled successfully with Docker LaTeX",
-        "message": "PDF recompiled successfully with Docker LaTeX",
+        "status_message": "PDF recompiled successfully",
+        "message": "PDF recompiled successfully",
         "pdf_size": len(pdf_data),
         "pdf_path": build_pdf_s3_uri(pdf_key),
     }
@@ -403,5 +396,8 @@ async def _process_generate_resume_for_job(
         if isinstance(final_state, dict)
         else "Resume generated!",
         "resume_id": resume_id,
-        "has_pdf": final_state.get("pdf_data") is not None if isinstance(final_state, dict) else False,
+        "has_pdf": final_state.get("latex_code") is not None if isinstance(final_state, dict) else False,
+        "ats_score": final_state.get("ats_score") if isinstance(final_state, dict) else None,
+        "assistant_response": final_state.get("assistant_response") if isinstance(final_state, dict) else None,
+        "resume_title": final_state.get("resume_title") if isinstance(final_state, dict) else None,
     }

@@ -28,6 +28,7 @@ from app.agent.tools import (
     calculate_job_relevance,
     generate_with_gemini,
     analyze_job_description,
+    extract_latex_and_ats_from_response,
 )
 from app.agent.prompts import (
     RESUME_AGENT_SYSTEM_PROMPT,
@@ -81,6 +82,9 @@ class AgentState(TypedDict):
     pdf_data: Optional[bytes]
     resume_id: Optional[str]
     ats_score: Optional[float]
+    resume_title: Optional[str]
+    assistant_response: Optional[str]
+    chat_history: Optional[List[Dict[str, Any]]]
     
     # Job search results
     jobs: Optional[List[Dict]]
@@ -225,7 +229,7 @@ async def generate_resume(state: AgentState) -> Dict:
     
     # Use AI to generate optimized resume content
     from app.agent.tools import generate_ai_resume
-    latex_code = await generate_ai_resume(
+    generation_result = await generate_ai_resume(
         profile=profile_with_exp,
         projects=selected_projects,
         experience=selected_experience,
@@ -234,12 +238,25 @@ async def generate_resume(state: AgentState) -> Dict:
         job_description=job_description,
         user_instructions=user_instructions
     )
+    latex_code = generation_result.get("latex_code", "") if isinstance(generation_result, dict) else ""
+    ats_score = generation_result.get("ats_score") if isinstance(generation_result, dict) else None
+    assistant_response = (
+        generation_result.get("assistant_response")
+        if isinstance(generation_result, dict)
+        else None
+    )
+    resume_title = generation_result.get("resume_title") if isinstance(generation_result, dict) else None
+    if not assistant_response:
+        assistant_response = "Resume draft generated and tailored to your job description."
     
     return {
         "latex_code": latex_code,
+        "ats_score": ats_score,
+        "assistant_response": assistant_response,
+        "resume_title": resume_title,
         "status": AgentStatus.GENERATING.value,
         "status_message": "AI-generated resume complete",
-        "messages": [{"role": "assistant", "content": "Resume generated with AI optimization!"}]
+        "messages": [{"role": "assistant", "content": assistant_response}]
     }
 
 
@@ -269,8 +286,8 @@ async def compile_pdf(state: AgentState) -> Dict:
         return {
             "pdf_data": None,
             "status": AgentStatus.COMPILING.value,
-            "status_message": "PDF compilation skipped (pdflatex not available)",
-            "messages": [{"role": "system", "content": "PDF compilation skipped - LaTeX code is available for manual compilation"}]
+            "status_message": "PDF compilation failed with Texapi",
+            "messages": [{"role": "system", "content": "PDF compilation failed - LaTeX code is available for manual compilation"}]
         }
 
 
@@ -278,31 +295,96 @@ async def save_resume(state: AgentState) -> Dict:
     """Save resume to database"""
     from app.database import get_collection
     from bson import ObjectId
+    from app.storage import build_pdf_s3_uri, upload_resume_pdf
     
     resumes_collection = get_collection("resumes")
-    
-    # Calculate ATS score based on keyword density
-    latex_code = state.get("latex_code", "")
-    keywords = state.get("jd_keywords", [])
-    
-    ats_score = calculate_ats_score(latex_code, keywords)
+
+    # Check if this is updating an existing resume (refinement)
+    current_resume_id = state.get("current_resume_id") or state.get("resume_id")
+
+    previous_ats_score: Optional[float] = None
+    previous_title: Optional[str] = None
+    previous_chat_history: List[Dict[str, Any]] = []
+    if current_resume_id and ObjectId.is_valid(current_resume_id):
+        existing_resume = await resumes_collection.find_one(
+            {"_id": ObjectId(current_resume_id), "user_id": state["user_id"]},
+            {"ats_score": 1, "title": 1, "chat_history": 1},
+        )
+        if existing_resume:
+            if isinstance(existing_resume.get("ats_score"), (int, float)):
+                previous_ats_score = float(existing_resume["ats_score"])
+            if isinstance(existing_resume.get("title"), str):
+                previous_title = existing_resume["title"]
+            if isinstance(existing_resume.get("chat_history"), list):
+                previous_chat_history = existing_resume["chat_history"]
+
+    ats_value = state.get("ats_score")
+    if isinstance(ats_value, (int, float)):
+        ats_score = round(max(0.0, min(100.0, float(ats_value))), 1)
+    else:
+        ats_score = previous_ats_score if previous_ats_score is not None else 0.0
+
+    generated_title = state.get("resume_title")
+    if current_resume_id:
+        resume_title = previous_title or f"Resume - {datetime.utcnow().strftime('%Y-%m-%d')}"
+    elif isinstance(generated_title, str) and generated_title.strip():
+        resume_title = " ".join(generated_title.strip().split())[:120]
+    else:
+        resume_title = f"Resume - {datetime.utcnow().strftime('%Y-%m-%d')}"
+
+    assistant_response = state.get("assistant_response")
+    if not isinstance(assistant_response, str) or not assistant_response.strip():
+        assistant_response = (
+            f"Resume {'updated' if current_resume_id else 'generated'} successfully. "
+            f"Current ATS score: {ats_score:.1f}/100."
+        )
+    assistant_response = assistant_response.strip()
+
+    chat_history: List[Dict[str, Any]] = list(previous_chat_history)
+    now = datetime.utcnow()
+    if current_resume_id and state.get("user_message"):
+        chat_history.append(
+            {
+                "role": "user",
+                "content": str(state.get("user_message", "")),
+                "timestamp": now,
+            }
+        )
+    elif not current_resume_id and state.get("job_description"):
+        generation_prompt = f"Generate resume for:\n\n{state.get('job_description', '')}"
+        instructions = state.get("user_instructions")
+        if instructions:
+            generation_prompt += f"\n\nInstructions: {instructions}"
+        chat_history.append(
+            {
+                "role": "user",
+                "content": generation_prompt,
+                "timestamp": now,
+            }
+        )
+    chat_history.append(
+        {
+            "role": "assistant",
+            "content": assistant_response,
+            "timestamp": now,
+        }
+    )
     
     resume_data = {
         "user_id": state["user_id"],
-        "title": f"Resume - {datetime.utcnow().strftime('%Y-%m-%d')}",
+        "title": resume_title,
         "job_description": state.get("job_description"),
         "custom_instructions": state.get("user_instructions"),
         "latex_code": state.get("latex_code"),
         "pdf_data": state.get("pdf_data"),
         "ats_score": ats_score,
+        "chat_history": chat_history,
+        "assistant_response": assistant_response,
         "selected_projects": [p.get("_id") for p in (state.get("selected_projects") or []) if p and isinstance(p, dict)],
         "version": 1,
         "is_latest": True,
         "updated_at": datetime.utcnow()
     }
-    
-    # Check if this is updating an existing resume (refinement)
-    current_resume_id = state.get("current_resume_id") or state.get("resume_id")
     
     if current_resume_id:
         # Update existing resume
@@ -350,39 +432,55 @@ async def save_resume(state: AgentState) -> Dict:
         resume_id = str(result.inserted_id)
         print(f"💾 New resume created with ATS score: {ats_score:.1f}/100")
     
+    pdf_data = state.get("pdf_data")
+    if pdf_data:
+        try:
+            pdf_key = upload_resume_pdf(resume_id, pdf_data)
+        except RuntimeError as exc:
+            return {
+                "resume_id": resume_id,
+                "ats_score": ats_score,
+                "status": AgentStatus.ERROR.value,
+                "status_message": f"Resume saved but PDF upload failed: {str(exc)}",
+                "messages": [{"role": "assistant", "content": "Resume saved, but PDF upload to S3 failed."}],
+            }
+
+        await resumes_collection.update_one(
+            {"_id": ObjectId(resume_id)},
+            {
+                "$set": {
+                    "pdf_path": build_pdf_s3_uri(pdf_key),
+                    "pdf_storage_key": pdf_key,
+                    "pdf_size": len(pdf_data),
+                    "pdf_compiled_at": datetime.utcnow(),
+                },
+                "$unset": {"pdf_data": ""},
+            },
+        )
+    else:
+        await resumes_collection.update_one(
+            {"_id": ObjectId(resume_id)},
+            {
+                "$unset": {
+                    "pdf_data": "",
+                    "pdf_path": "",
+                    "pdf_storage_key": "",
+                    "pdf_size": "",
+                    "pdf_compiled_at": "",
+                }
+            },
+        )
+
     return {
         "resume_id": resume_id,
         "ats_score": ats_score,
+        "resume_title": resume_title,
+        "assistant_response": assistant_response,
+        "chat_history": chat_history,
         "status": AgentStatus.COMPLETED.value,
         "status_message": f"Resume {'updated' if current_resume_id else 'saved'}! ATS Score: {ats_score:.1f}/100",
-        "messages": [{"role": "assistant", "content": f"✅ Resume ready! ATS Score: {ats_score:.1f}/100. {'Great job!' if ats_score >= 80 else 'Consider adding more relevant keywords.' if ats_score >= 60 else 'Low ATS score - try different keywords or projects.'}"}]
+        "messages": [{"role": "assistant", "content": assistant_response}]
     }
-
-
-def calculate_ats_score(latex_code: str, keywords: List[str]) -> float:
-    """Calculate ATS score based on keyword presence and density"""
-    if not latex_code or not keywords:
-        return 0.0
-    
-    text_lower = latex_code.lower()
-    keyword_matches = 0
-    
-    for keyword in keywords:
-        if keyword.lower() in text_lower:
-            # Count occurrences (up to 3 for diminishing returns)
-            count = min(text_lower.count(keyword.lower()), 3)
-            keyword_matches += count
-    
-    # Base score on keyword coverage
-    keyword_coverage = len([k for k in keywords if k.lower() in text_lower]) / len(keywords)
-    
-    # Bonus for frequency
-    frequency_bonus = min(keyword_matches / len(keywords), 1.0)
-    
-    # Final score (0-100)
-    score = (keyword_coverage * 70) + (frequency_bonus * 30)
-    
-    return round(score, 1)
 
 
 async def refine_resume(state: AgentState) -> Dict:
@@ -423,8 +521,12 @@ async def refine_resume(state: AgentState) -> Dict:
     
     try:
         print(f"🔧 Sending refinement prompt to Gemini...")
-        new_latex = await generate_with_gemini(prompt, RESUME_AGENT_SYSTEM_PROMPT)
-        print(f"🔧 Gemini response length: {len(new_latex) if new_latex else 0}")
+        model_response = await generate_with_gemini(prompt, RESUME_AGENT_SYSTEM_PROMPT)
+        print(f"🔧 Gemini response length: {len(model_response) if model_response else 0}")
+        parsed = extract_latex_and_ats_from_response(model_response)
+        new_latex = parsed.get("latex_code", "")
+        ats_score = parsed.get("ats_score")
+        assistant_response = parsed.get("assistant_response")
         
         # Extract LaTeX code from response
         if new_latex and "\\documentclass" in new_latex:
@@ -447,14 +549,18 @@ async def refine_resume(state: AgentState) -> Dict:
             status_msg = f"Resume refined based on your feedback"
             print(f"✅ LaTeX was modified ({len(new_latex)} chars vs {len(current_latex)} original)")
         
+        if not isinstance(assistant_response, str) or not assistant_response.strip():
+            assistant_response = status_msg
+        
         return {
             "latex_code": new_latex,
+            "ats_score": ats_score,
+            "assistant_response": assistant_response,
             "current_resume_id": current_resume_id,  # Preserve resume ID
             "resume_id": current_resume_id,  # Also set resume_id
             "status": AgentStatus.REFINING.value,
             "status_message": status_msg,
-            "status_message": "Resume refined based on your feedback",
-            "messages": [{"role": "assistant", "content": "I've updated the resume. Compiling PDF..."}]
+            "messages": [{"role": "assistant", "content": assistant_response}]
         }
     except Exception as e:
         print(f"🔧 ERROR in Gemini call: {str(e)}")
@@ -690,6 +796,7 @@ async def run_agent(
     # Load existing resume data if refinement task
     existing_latex = None
     existing_jd = None
+    existing_instructions = None
     if current_resume_id and task_type == "resume_refinement":
         print(f"🔍 Loading existing resume for refinement: {current_resume_id}")
         try:
@@ -705,11 +812,14 @@ async def run_agent(
             if existing_resume:
                 existing_latex = existing_resume.get("latex_code")
                 existing_jd = existing_resume.get("job_description")
+                existing_instructions = existing_resume.get("custom_instructions")
                 print(f"🔍 Loaded resume - LaTeX length: {len(existing_latex) if existing_latex else 0}")
                 print(f"🔍 Loaded JD length: {len(existing_jd) if existing_jd else 0}")
                 # Use existing JD if no new one provided
                 if not job_description and existing_jd:
                     job_description = existing_jd
+                if not user_instructions and existing_instructions:
+                    user_instructions = existing_instructions
             else:
                 print(f"🔍 Resume not found in database: {current_resume_id}")
         except Exception as e:
@@ -736,6 +846,9 @@ async def run_agent(
         pdf_data=None,
         resume_id=current_resume_id if current_resume_id else None,  # Set resume_id for updates
         ats_score=None,
+        resume_title=None,
+        assistant_response=None,
+        chat_history=None,
         jobs=None,
         status=AgentStatus.IDLE.value,
         status_message="Starting...",

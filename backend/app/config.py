@@ -30,6 +30,10 @@ class Settings(BaseSettings):
 
     # SerpAPI
     serpapi_key: str = ""
+    
+    # Texapi (LaTeX PDF compilation service)
+    texapi_api_key: str = ""
+    texapi_base_url: str = "https://texapi.ovh"
 
     # App URLs
     frontend_url: str = "http://localhost:5173"

@@ -16,6 +16,23 @@ interface Message {
   content: string
 }
 
+interface ResumeChatMessage {
+  role: 'user' | 'assistant' | 'system'
+  content: string
+  timestamp?: string
+}
+
+interface ResumeDetailPayload {
+  id: string
+  title: string
+  job_description?: string
+  custom_instructions?: string
+  has_pdf?: boolean
+  ats_score?: number
+  assistant_response?: string
+  chat_history?: ResumeChatMessage[]
+}
+
 const GENERIC_ERROR_MESSAGE = 'An error occurred. Please try again.'
 
 function PDFPreview({
@@ -158,24 +175,33 @@ export function CreateResumePage() {
         message: 'Loading resume and preparing preview...',
       })
       const response = await resumesApi.get(id)
-      const resume = response.data
+      const resume = response.data as ResumeDetailPayload
 
       setResumeId(id)
       if (resume.job_description) setJobDescription(resume.job_description)
+      if (resume.custom_instructions) setInstructions(resume.custom_instructions)
       setHasPdf(resume.has_pdf || true)
-
-      setMessages([
-        {
-          role: 'assistant',
-          content:
-            `Loaded resume: **${resume.title}**\n\n` +
-            `The preview on the right is live.\n` +
-            `You can ask for edits below and recompile anytime.`,
-        },
-      ])
+      const loadedMessages =
+        resume.chat_history && resume.chat_history.length > 0
+          ? resume.chat_history
+              .filter((msg) => !!msg?.content && !!msg?.role)
+              .map((msg) => ({ role: msg.role, content: msg.content }))
+          : [
+              {
+                role: 'assistant' as const,
+                content:
+                  `Loaded resume: ${resume.title}\n\n` +
+                  `The preview on the right is live.\n` +
+                  `You can ask for edits below and recompile anytime.`,
+              },
+            ]
+      setMessages(loadedMessages)
       setPageStatus({
         tone: 'success',
-        message: 'Resume loaded and ready for edits.',
+        message:
+          resume.ats_score !== undefined && resume.ats_score !== null
+            ? `Resume loaded. ATS Score: ${resume.ats_score.toFixed(1)}/100`
+            : 'Resume loaded and ready for edits.',
       })
       toast.success('Resume loaded for editing')
     } catch {
@@ -194,6 +220,9 @@ export function CreateResumePage() {
         status_message: string
         resume_id?: string
         has_pdf?: boolean
+        ats_score?: number
+        assistant_response?: string
+        resume_title?: string
       }>(queuedTask.data.job_id, {
         onStatusChange: (queueStatus, queueMessage) => {
           setPageStatus({
@@ -221,14 +250,16 @@ export function CreateResumePage() {
         ...prev,
         {
           role: 'assistant',
-          content: `Resume generated successfully. ${data.has_pdf ? 'PDF preview is ready.' : 'LaTeX output is available.'}`,
+          content:
+            data.assistant_response ||
+            `Resume generated successfully. ${data.has_pdf ? 'PDF preview is ready.' : 'LaTeX output is available.'}`,
         },
       ])
       toast.success('Resume generated!')
       if (data.resume_id) fetchResumeDetails(data.resume_id)
     },
     onError: (error: any) => {
-      const message = error?.message || GENERIC_ERROR_MESSAGE
+      const message = error?.response?.data?.detail || error?.message || GENERIC_ERROR_MESSAGE
       setPageStatus({
         tone: 'error',
         message,
@@ -245,6 +276,9 @@ export function CreateResumePage() {
         status_message: string
         resume_id?: string
         has_pdf?: boolean
+        ats_score?: number
+        assistant_response?: string
+        resume_title?: string
       }>(queuedTask.data.job_id, {
         onStatusChange: (queueStatus, queueMessage) => {
           setPageStatus({
@@ -269,7 +303,10 @@ export function CreateResumePage() {
       })
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: 'Changes applied. Preview and exports are updated.' },
+        {
+          role: 'assistant',
+          content: data.assistant_response || 'Changes applied. Preview and exports are updated.',
+        },
       ])
       toast.success('Resume updated!')
       if (resumeId) fetchResumeDetails(resumeId)
@@ -324,7 +361,7 @@ export function CreateResumePage() {
   const handleDownloadPdf = async () => {
     if (!resumeId) return
     try {
-      toast.loading('Compiling PDF...', { id: 'pdf-download' })
+      toast.loading('Downloading PDF...', { id: 'pdf-download' })
       const response = await resumesApi.getPdf(resumeId)
       const blob = new Blob([response.data], { type: 'application/pdf' })
       if (blob.size < 10000) {

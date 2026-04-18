@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException, status, Depends, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from bson import ObjectId
 from redis.exceptions import RedisError
 
@@ -10,7 +10,6 @@ from app.auth import get_current_user
 from app.models import ResumeResponse
 from app.task_queue import enqueue_task
 from app.storage import (
-    build_pdf_s3_uri,
     delete_resume_pdf,
     get_resume_pdf as get_resume_pdf_from_storage,
     get_resume_pdf_metadata,
@@ -18,6 +17,7 @@ from app.storage import (
 )
 
 router = APIRouter(prefix="/resumes", tags=["Resumes"])
+MAX_RESUMES_PER_USER = 5
 
 
 # Request/Response schemas
@@ -35,9 +35,12 @@ class ResumeDetailResponse(BaseModel):
     user_id: str
     title: str
     job_description: Optional[str] = None
+    custom_instructions: Optional[str] = None
     latex_code: Optional[str] = None
     has_pdf: bool = False
     ats_score: Optional[float] = None
+    assistant_response: Optional[str] = None
+    chat_history: List[Dict[str, Any]] = Field(default_factory=list)
     version: int
     created_at: datetime
     updated_at: datetime
@@ -90,15 +93,41 @@ async def get_resume(
     
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found")
+
+    raw_chat_history = resume.get("chat_history") or []
+    chat_history: List[Dict[str, Any]] = []
+    if isinstance(raw_chat_history, list):
+        for item in raw_chat_history:
+            if not isinstance(item, dict):
+                continue
+            role = item.get("role")
+            content = item.get("content")
+            if not isinstance(role, str) or not isinstance(content, str):
+                continue
+            timestamp = item.get("timestamp")
+            if isinstance(timestamp, datetime):
+                timestamp_value = timestamp
+            else:
+                timestamp_value = resume.get("updated_at", datetime.utcnow())
+            chat_history.append(
+                {
+                    "role": role,
+                    "content": content,
+                    "timestamp": timestamp_value,
+                }
+            )
     
     return ResumeDetailResponse(
         id=str(resume["_id"]),
         user_id=resume["user_id"],
         title=resume["title"],
         job_description=resume.get("job_description"),
+        custom_instructions=resume.get("custom_instructions"),
         latex_code=resume.get("latex_code"),
         has_pdf=resume.get("latex_code") is not None,  # Has PDF if we have LaTeX to compile
         ats_score=resume.get("ats_score"),
+        assistant_response=resume.get("assistant_response"),
+        chat_history=chat_history,
         version=resume.get("version", 1),
         created_at=resume["created_at"],
         updated_at=resume["updated_at"]
@@ -110,7 +139,7 @@ async def get_resume_pdf(
     resume_id: str,
     current_user: dict = Depends(get_current_user)
 ):
-    """Download resume as PDF - ALWAYS compile fresh with Docker LaTeX"""
+    """Download resume PDF from S3 cache."""
     resumes_collection = get_collection("resumes")
     
     resume = await resumes_collection.find_one({
@@ -120,52 +149,18 @@ async def get_resume_pdf(
     
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found")
-    
-    if not resume.get("latex_code"):
-        raise HTTPException(status_code=404, detail="No LaTeX code available")
-    
-    # ALWAYS compile fresh with Docker LaTeX - no MongoDB binary storage
-    from app.agent.tools import compile_latex_to_pdf
-    
-    print(f"🔄 Compiling PDF for resume {resume_id} using Docker LaTeX...")
-    pdf_data = compile_latex_to_pdf(resume["latex_code"])
-    
+
+    try:
+        pdf_data = get_resume_pdf_from_storage(resume_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=f"S3 read failed: {str(exc)}")
+
     if not pdf_data:
         raise HTTPException(
-            status_code=500, 
-            detail="PDF compilation failed. Ensure Docker is running with texlive image."
+            status_code=404,
+            detail="No compiled PDF found. Please recompile this resume once, then try downloading again.",
         )
-    
-    # Verify it's NOT a ReportLab PDF
-    if b"ReportLab" in pdf_data:
-        raise HTTPException(
-            status_code=500,
-            detail="ReportLab fallback detected! Docker LaTeX compilation required."
-        )
-    
-    print(f"✅ PDF compiled: {len(pdf_data)} bytes (Docker LaTeX)")
-    
-    try:
-        pdf_key = upload_resume_pdf(resume_id, pdf_data)
-    except RuntimeError as exc:
-        raise HTTPException(status_code=500, detail=f"S3 upload failed: {str(exc)}")
-    
-    print(f"💾 PDF uploaded to S3: {pdf_key}")
-    
-    # Update database with file path (not binary data)
-    await resumes_collection.update_one(
-        {"_id": ObjectId(resume_id)},
-        {
-            "$set": {
-                "pdf_path": build_pdf_s3_uri(pdf_key),
-                "pdf_storage_key": pdf_key,
-                "pdf_size": len(pdf_data),
-                "pdf_compiled_at": datetime.utcnow()
-            },
-            "$unset": {"pdf_data": ""}  # Remove old binary data
-        }
-    )
-    
+
     return Response(
         content=pdf_data,
         media_type="application/pdf",
@@ -178,7 +173,7 @@ async def get_resume_preview(
     resume_id: str,
     current_user: dict = Depends(get_current_user)
 ):
-    """Get resume PDF for preview - ALWAYS compile fresh with Docker LaTeX"""
+    """Get resume PDF for preview - always compile fresh when no cached PDF exists."""
     resumes_collection = get_collection("resumes")
     
     resume = await resumes_collection.find_one({
@@ -206,7 +201,7 @@ async def get_resume_preview(
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=f"S3 read failed: {str(exc)}")
     
-    # Compile fresh with Docker LaTeX
+    # Compile fresh with Texapi
     from app.agent.tools import compile_latex_to_pdf
     
     print(f"🔄 Compiling PDF preview for resume {resume_id}...")
@@ -215,14 +210,7 @@ async def get_resume_preview(
     if not pdf_data:
         raise HTTPException(
             status_code=500, 
-            detail="PDF compilation failed. Ensure Docker is running with texlive image."
-        )
-    
-    # Verify it's NOT a ReportLab PDF
-    if b"ReportLab" in pdf_data:
-        raise HTTPException(
-            status_code=500,
-            detail="ReportLab fallback detected! Docker LaTeX compilation required."
+            detail="PDF compilation failed with Texapi. Check TEXAPI_API_KEY and Texapi service availability."
         )
     
     print(f"✅ PDF compiled for preview: {len(pdf_data)} bytes")
@@ -323,6 +311,14 @@ async def generate_resume(
     current_user: dict = Depends(get_current_user)
 ):
     """Queue resume generation task"""
+    resumes_collection = get_collection("resumes")
+    current_resume_count = await resumes_collection.count_documents({"user_id": current_user["id"]})
+    if current_resume_count >= MAX_RESUMES_PER_USER:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Resume limit reached (max 5). Please delete an older resume to generate a new one.",
+        )
+
     try:
         job_id = enqueue_task(
             task_path="app.worker_tasks.process_generate_resume",
