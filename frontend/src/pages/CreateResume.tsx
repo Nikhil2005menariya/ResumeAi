@@ -224,7 +224,7 @@ export function CreateResumePage() {
         assistant_response?: string
         resume_title?: string
       }>(queuedTask.data.job_id, {
-        onStatusChange: (queueStatus, queueMessage) => {
+        onStatusChange: (queueStatus: string, queueMessage: string) => {
           setPageStatus({
             tone: queueStatus === 'failed' ? 'error' : 'working',
             message: queueMessage || 'Generating resume...',
@@ -280,7 +280,7 @@ export function CreateResumePage() {
         assistant_response?: string
         resume_title?: string
       }>(queuedTask.data.job_id, {
-        onStatusChange: (queueStatus, queueMessage) => {
+        onStatusChange: (queueStatus: string, queueMessage: string) => {
           setPageStatus({
             tone: queueStatus === 'failed' ? 'error' : 'working',
             message: queueMessage || 'Applying your requested changes...',

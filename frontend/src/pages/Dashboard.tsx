@@ -51,17 +51,17 @@ export function DashboardPage() {
 
   const profileQuery = useQuery({
     queryKey: ['profile'],
-    queryFn: () => profileApi.get().then((res) => res.data as ProfileShape),
+    queryFn: () => profileApi.get().then((res: any) => res.data as ProfileShape),
   })
 
   const resumesQuery = useQuery({
     queryKey: ['resumes'],
-    queryFn: () => resumesApi.list().then((res) => res.data as ResumeItem[]),
+    queryFn: () => resumesApi.list().then((res: any) => res.data as ResumeItem[]),
   })
 
   const projectsQuery = useQuery({
     queryKey: ['projects'],
-    queryFn: () => projectsApi.list().then((res) => res.data as ProjectItem[]),
+    queryFn: () => projectsApi.list().then((res: any) => res.data as ProjectItem[]),
   })
 
   const loading = profileQuery.isLoading || resumesQuery.isLoading || projectsQuery.isLoading
