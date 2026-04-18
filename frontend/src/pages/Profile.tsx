@@ -28,7 +28,7 @@ export function ProfilePage() {
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ['profile'],
-    queryFn: () => profileApi.get().then(res => res.data),
+    queryFn: () => profileApi.get().then((res: any) => res.data),
   })
 
   const updateMutation = useMutation({

@@ -26,7 +26,7 @@ export function ProjectsPage() {
 
   const { data: projects, isLoading } = useQuery({
     queryKey: ['projects'],
-    queryFn: () => projectsApi.list().then(res => res.data),
+    queryFn: () => projectsApi.list().then((res: any) => res.data),
   })
 
   const createMutation = useMutation({

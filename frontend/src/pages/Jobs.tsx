@@ -44,7 +44,7 @@ export function JobsPage() {
 
   const { data: savedJobs, isLoading: isLoadingSaved } = useQuery({
     queryKey: ['saved-jobs'],
-    queryFn: () => jobsApi.getSaved().then((res) => res.data),
+    queryFn: () => jobsApi.getSaved().then((res: any) => res.data),
   })
 
   const searchMutation = useMutation({

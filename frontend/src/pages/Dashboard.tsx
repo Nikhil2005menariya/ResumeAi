@@ -73,17 +73,17 @@ export function DashboardPage() {
 
   const stats = useMemo(() => {
     const scoredResumes = resumeList.filter(
-      (resume): resume is ResumeItem & { ats_score: number } => typeof resume.ats_score === 'number'
+      (resume: ResumeItem): resume is ResumeItem & { ats_score: number } => typeof resume.ats_score === 'number'
     )
     const averageAts = scoredResumes.length
-      ? Math.round(scoredResumes.reduce((sum, resume) => sum + resume.ats_score, 0) / scoredResumes.length)
+      ? Math.round(scoredResumes.reduce((sum: number, resume: ResumeItem & { ats_score: number }) => sum + resume.ats_score, 0) / scoredResumes.length)
       : 0
 
     return {
       resumes: resumeList.length,
       projects: projectList.length,
-      featuredProjects: projectList.filter((project) => project.is_featured).length,
-      highAts: scoredResumes.filter((resume) => resume.ats_score >= 80).length,
+      featuredProjects: projectList.filter((project: ProjectItem) => project.is_featured).length,
+      highAts: scoredResumes.filter((resume: ResumeItem & { ats_score: number }) => resume.ats_score >= 80).length,
       averageAts,
     }
   }, [projectList, resumeList])
@@ -160,7 +160,7 @@ export function DashboardPage() {
             {loading ? (
               Array.from({ length: 4 }).map((_, idx) => <LoadingListRow key={idx} />)
             ) : recentResumes.length > 0 ? (
-              recentResumes.map((resume) => (
+              recentResumes.map((resume: ResumeItem) => (
                 <Link
                   key={resume.id}
                   to={`/app/create-resume?edit=${resume.id}`}
@@ -233,7 +233,7 @@ export function DashboardPage() {
               </div>
             ) : recentProjects.length > 0 ? (
               <div className="grid gap-3 sm:grid-cols-2">
-                {recentProjects.map((project) => (
+                {recentProjects.map((project: ProjectItem) => (
                   <div key={project.id} className="dashboard-row rounded-lg p-3.5">
                     <div className="mb-1.5 flex items-start justify-between gap-2">
                       <h3 className="line-clamp-1 text-sm font-semibold text-[#171717]">{project.title}</h3>

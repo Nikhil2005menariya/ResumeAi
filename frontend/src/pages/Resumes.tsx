@@ -15,7 +15,7 @@ export function ResumesPage() {
 
   const { data: resumes, isLoading } = useQuery({
     queryKey: ['resumes'],
-    queryFn: () => resumesApi.list().then(res => res.data),
+    queryFn: () => resumesApi.list().then((res: any) => res.data),
   })
 
   const deleteMutation = useMutation({
