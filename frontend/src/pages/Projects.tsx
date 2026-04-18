@@ -5,7 +5,6 @@ import toast from 'react-hot-toast'
 import {
   FolderKanban,
   Plus,
-  Trash2,
   Edit2,
   Star,
   ExternalLink,
@@ -13,6 +12,7 @@ import {
   Loader2,
   X,
 } from 'lucide-react'
+import { AnimatedDeleteButton } from '@/components/AnimatedDeleteButton'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -233,7 +233,11 @@ function ProjectForm({ defaultValues, onSubmit, onCancel, isSubmitting }: Projec
             </div>
           </div>
           <div className="flex gap-2">
-            <Button type="submit" disabled={isSubmitting}>
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="dashboard-btn-dark h-10 gap-2 rounded-md px-4"
+            >
               {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               {defaultValues ? 'Update' : 'Create'} Project
             </Button>
@@ -327,14 +331,7 @@ function ProjectCard({ project, onEdit, onDelete, onToggleFeatured, isDeleting }
             <Button variant="ghost" size="icon" onClick={onEdit}>
               <Edit2 className="h-4 w-4" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onDelete}
-              disabled={isDeleting}
-            >
-              <Trash2 className="h-4 w-4 text-destructive" />
-            </Button>
+            <AnimatedDeleteButton onClick={onDelete} disabled={isDeleting} label="Delete project" compact />
           </div>
         </div>
       </CardContent>

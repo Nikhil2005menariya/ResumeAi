@@ -15,6 +15,7 @@ import {
   Loader2,
   Save,
 } from 'lucide-react'
+import { AnimatedDeleteButton } from '@/components/AnimatedDeleteButton'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -213,14 +214,12 @@ function EducationTab({ profile }: { profile: any }) {
                 </p>
                 {edu.gpa && <p className="text-sm">GPA: {edu.gpa}</p>}
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
+              <AnimatedDeleteButton
                 onClick={() => deleteMutation.mutate(index)}
                 disabled={deleteMutation.isPending}
-              >
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
+                label="Delete education"
+                compact
+              />
             </div>
           </CardContent>
         </Card>
@@ -253,7 +252,11 @@ function EducationTab({ profile }: { profile: any }) {
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button type="submit" disabled={addMutation.isPending}>
+                <Button
+                  type="submit"
+                  disabled={addMutation.isPending}
+                  className="dashboard-btn-dark h-10 gap-2 rounded-md px-4"
+                >
                   {addMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                   Save
                 </Button>
@@ -313,14 +316,12 @@ function ExperienceTab({ profile }: { profile: any }) {
                 </p>
                 {exp.description && <p className="text-sm mt-2">{exp.description}</p>}
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
+              <AnimatedDeleteButton
                 onClick={() => deleteMutation.mutate(index)}
                 disabled={deleteMutation.isPending}
-              >
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
+                label="Delete experience"
+                compact
+              />
             </div>
           </CardContent>
         </Card>
@@ -357,7 +358,11 @@ function ExperienceTab({ profile }: { profile: any }) {
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button type="submit" disabled={addMutation.isPending}>
+                <Button
+                  type="submit"
+                  disabled={addMutation.isPending}
+                  className="dashboard-btn-dark h-10 gap-2 rounded-md px-4"
+                >
                   {addMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                   Save
                 </Button>
@@ -409,35 +414,41 @@ function SkillsTab({ profile }: { profile: any }) {
 
   return (
     <div className="space-y-4">
-      <Card>
+      <Card className="profile-skills-card">
         <CardHeader>
           <CardTitle>Technical Skills</CardTitle>
           <CardDescription>Add skills that showcase your expertise</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <form onSubmit={handleAddSkill} className="flex gap-2">
+          <form onSubmit={handleAddSkill} className="profile-skills-form">
             <Input
               value={newSkill}
               onChange={(e) => setNewSkill(e.target.value)}
               placeholder="e.g., React, Python, AWS..."
               disabled={addMutation.isPending}
+              className="profile-skills-input"
             />
-            <Button type="submit" disabled={addMutation.isPending || !newSkill.trim()}>
+            <Button
+              type="submit"
+              disabled={addMutation.isPending || !newSkill.trim()}
+              className="profile-skills-add-btn"
+            >
               {addMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
             </Button>
           </form>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="profile-skills-grid">
             {profile?.skills?.map((skill: any, index: number) => (
               <span
                 key={index}
-                className="inline-flex items-center gap-1 bg-primary/10 text-primary px-3 py-1 rounded-full text-sm"
+                className="profile-skills-chip"
               >
                 {skill.name}
                 <button
                   onClick={() => deleteMutation.mutate(index)}
                   disabled={deleteMutation.isPending}
-                  className="hover:text-destructive"
+                  className="profile-skills-chip-delete"
+                  type="button"
                 >
                   <Trash2 className="h-3 w-3" />
                 </button>

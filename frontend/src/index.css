@@ -838,6 +838,9 @@
 .resume-delete-button {
   width: 34px;
   height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  flex-shrink: 0;
   border-radius: 9999px;
   background: #171717;
   color: #ffffff;
@@ -879,6 +882,93 @@
   opacity: 0.55;
   cursor: not-allowed;
   transform: none;
+}
+
+.profile-delete-button {
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  min-height: 30px;
+}
+
+.profile-delete-button .resume-delete-icon {
+  width: 8px;
+}
+
+.profile-skills-card {
+  border: none !important;
+  background: #ffffff;
+  box-shadow:
+    rgba(0, 0, 0, 0.08) 0px 0px 0px 1px,
+    rgba(0, 0, 0, 0.04) 0px 2px 2px,
+    #fafafa 0px 0px 0px 1px;
+}
+
+.profile-skills-form {
+  display: flex;
+  gap: 8px;
+}
+
+.profile-skills-input {
+  border-color: #ebebeb;
+  background: #ffffff;
+}
+
+.profile-skills-input:focus-visible {
+  outline: 2px solid hsla(212, 100%, 48%, 1);
+  outline-offset: 1px;
+}
+
+.profile-skills-add-btn {
+  min-width: 42px;
+  background: #171717;
+  color: #ffffff;
+  border: none;
+  box-shadow:
+    rgba(0, 0, 0, 0.08) 0px 0px 0px 1px,
+    rgba(0, 0, 0, 0.12) 0px 8px 16px -12px;
+}
+
+.profile-skills-add-btn:hover {
+  background: #000000;
+}
+
+.profile-skills-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.profile-skills-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 9999px;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #171717;
+  background: #fafafa;
+  box-shadow: rgb(235, 235, 235) 0px 0px 0px 1px;
+}
+
+.profile-skills-chip-delete {
+  border: none;
+  background: transparent;
+  color: #808080;
+  padding: 0;
+  cursor: pointer;
+  line-height: 0;
+  transition: color 0.2s ease;
+}
+
+.profile-skills-chip-delete:hover {
+  color: #ff5b4f;
+}
+
+.profile-skills-chip-delete:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .jobs-hero-card {
