@@ -13,7 +13,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { BrandWordmark } from '@/components/Brand';
 import authAnimation from '@/assets/animations/auth.json';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// Use relative URLs so Vercel's middleware can rewrite /api/* to backend
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 // Validation schemas
 const emailSchema = z.object({
@@ -75,7 +76,7 @@ export default function ForgotPassword() {
     setError('');
     
     try {
-      await axios.post(`${API_URL}/api/auth/forgot-password`, {
+      await axios.post(`/api/auth/forgot-password`, {
         email: data.email,
       });
       
@@ -96,7 +97,7 @@ export default function ForgotPassword() {
     setError('');
     
     try {
-      await axios.post(`${API_URL}/api/auth/forgot-password`, {
+      await axios.post(`/api/auth/forgot-password`, {
         email,
       });
       
@@ -126,7 +127,7 @@ export default function ForgotPassword() {
     const otp = sessionStorage.getItem('reset_otp');
     
     try {
-      await axios.post(`${API_URL}/api/auth/reset-password`, {
+      await axios.post(`/api/auth/reset-password`, {
         email,
         code: otp,
         new_password: data.password,
